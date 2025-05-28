@@ -1,8 +1,21 @@
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { Music, BookOpen } from "lucide-react"
+import Image from "next/image"
+import { getAlbums, getBlogPosts } from "@/lib/contentful"
+import { documentToReactComponents } from "@contentful/rich-text-react-renderer"
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Fetch latest album and blog posts from Contentful
+  const albums = await getAlbums()
+  const blogPosts = await getBlogPosts()
+
+  // Get the latest album (first in the array since they're ordered by release date)
+  const latestAlbum = albums.length > 0 ? albums[0] : null
+
+  // Get the latest 2 blog posts
+  const latestPosts = blogPosts.slice(0, 2)
+
   return (
     <div className="relative min-h-screen">
       {/* Hero Section */}
@@ -55,84 +68,106 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Latest Album Section */}
+      {/* Latest Album Section - Now Dynamic */}
       <section className="py-20 px-4 bg-gradient-to-b from-black to-gray-900">
         <div className="max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="order-2 lg:order-1">
-              <img
-                src="/images/album-cover.jpg"
-                alt="Zlosutni Cetinari Srpske Album Cover"
-                className="w-full max-w-lg mx-auto shadow-2xl rounded-lg"
-              />
-            </div>
-            <div className="space-y-6 order-1 lg:order-2">
-              <div>
-                <h2 className="text-4xl md:text-5xl font-light mb-4 text-white">Zlosutni Cetinari Srpske</h2>
-                <p className="text-xl text-gray-400 mb-6">Latest Album • 2024</p>
+          {latestAlbum ? (
+            <div className="grid lg:grid-cols-2 gap-16 items-center">
+              <div className="order-2 lg:order-1">
+                {latestAlbum.fields.coverImage && latestAlbum.fields.coverImage.length > 0 ? (
+                  <div className="relative w-full max-w-lg mx-auto aspect-square">
+                    <Image
+                      src={`https:${latestAlbum.fields.coverImage[0].fields.file.url}`}
+                      alt={`${latestAlbum.fields.title} Album Cover`}
+                      fill
+                      className="object-cover shadow-2xl rounded-lg"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full max-w-lg mx-auto aspect-square bg-zinc-800 rounded-lg flex items-center justify-center">
+                    <Music className="w-24 h-24 text-zinc-600" />
+                  </div>
+                )}
               </div>
+              <div className="space-y-6 order-1 lg:order-2">
+                <div>
+                  <h2 className="text-4xl md:text-5xl font-light mb-4 text-white">{latestAlbum.fields.title}</h2>
+                  <p className="text-xl text-gray-400 mb-6">
+                    Latest Album • {new Date(latestAlbum.fields.releaseDate).getFullYear()}
+                  </p>
+                </div>
 
-              <p className="text-gray-300 text-lg leading-relaxed">
-                An atmospheric journey through the dark forests of Serbian folklore, where ancient spirits dwell among
-                the evergreen trees. This album explores themes of nature, tradition, and the eternal struggle between
-                light and darkness in the Balkan wilderness.
-              </p>
+                {latestAlbum.fields.description && (
+                  <div className="text-gray-300 text-lg leading-relaxed prose prose-invert max-w-none">
+                    {documentToReactComponents(latestAlbum.fields.description)}
+                  </div>
+                )}
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button asChild className="bg-white text-black hover:bg-gray-200 shadow-xl">
-                  <Link href="/albums/zlosutni-cetinari-srpske">View Album Details</Link>
-                </Button>
-                <Button asChild variant="outline" className="border-gray-400 text-gray-300 hover:bg-gray-800">
-                  <a href="https://bandcamp.com" target="_blank" rel="noopener noreferrer">
-                    Listen on Bandcamp
-                  </a>
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <Button asChild className="bg-white text-black hover:bg-gray-200 shadow-xl">
+                    <Link href="/albums">View Album Details</Link>
+                  </Button>
+                  <Button asChild variant="outline" className="border-gray-400 text-gray-300 hover:bg-gray-800">
+                    <a href="https://bandcamp.com" target="_blank" rel="noopener noreferrer">
+                      Listen on Bandcamp
+                    </a>
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center text-gray-400">
+              <p className="text-xl">No albums available yet.</p>
+              <p>Add your first album in Contentful!</p>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* News Section */}
+      {/* News Section - Now Dynamic */}
       <section className="py-20 px-4 bg-gray-900">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-light mb-12 text-white">Latest News</h2>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            <article className="text-left bg-black/30 p-6 rounded-lg backdrop-blur-sm">
-              <div className="mb-4">
-                <img
-                  src="/images/album-cover.jpg"
-                  alt="Album Release News"
-                  className="w-full h-48 object-cover rounded"
-                />
-              </div>
-              <h3 className="text-xl font-medium mb-3 text-white">New Album "Zlosutni Cetinari Srpske" Released</h3>
-              <p className="text-gray-400 text-sm mb-3">January 15, 2024</p>
-              <p className="text-gray-300 leading-relaxed">
-                After two years of intensive work in the Serbian wilderness, the new album exploring themes of ancient
-                folklore and natural mysticism is now available across all platforms...
-              </p>
-              <Button asChild variant="link" className="text-white p-0 mt-3">
-                <Link href="/blog/zlosutni-cetinari-srpske-release">Read More</Link>
-              </Button>
-            </article>
-
-            <article className="text-left bg-black/30 p-6 rounded-lg backdrop-blur-sm">
-              <div className="mb-4">
-                <img src="/images/background-1.jpg" alt="Tour News" className="w-full h-48 object-cover rounded" />
-              </div>
-              <h3 className="text-xl font-medium mb-3 text-white">Balkan Tour Dates Announced</h3>
-              <p className="text-gray-400 text-sm mb-3">December 20, 2023</p>
-              <p className="text-gray-300 leading-relaxed">
-                Bringing the darkness to stages across the Balkans this spring. Experience the atmospheric black metal
-                journey live in intimate venues throughout the region...
-              </p>
-              <Button asChild variant="link" className="text-white p-0 mt-3">
-                <Link href="/blog/balkan-tour">Read More</Link>
-              </Button>
-            </article>
-          </div>
+          {latestPosts.length > 0 ? (
+            <div className="grid md:grid-cols-2 gap-8">
+              {latestPosts.map((post: any) => (
+                <article key={post.sys.id} className="text-left bg-black/30 p-6 rounded-lg backdrop-blur-sm">
+                  <div className="mb-4">
+                    {post.fields.featuredImage ? (
+                      <div className="relative w-full h-48">
+                        <Image
+                          src={`https:${post.fields.featuredImage.fields.file.url}`}
+                          alt={post.fields.title}
+                          fill
+                          className="object-cover rounded"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-full h-48 bg-zinc-800 rounded flex items-center justify-center">
+                        <BookOpen className="w-12 h-12 text-zinc-600" />
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="text-xl font-medium mb-3 text-white">{post.fields.title}</h3>
+                  <p className="text-gray-400 text-sm mb-3">
+                    {new Date(post.fields.publicationDate).toLocaleDateString()}
+                  </p>
+                  <div className="text-gray-300 leading-relaxed prose prose-invert max-w-none">
+                    {post.fields.content && documentToReactComponents(post.fields.content)}
+                  </div>
+                  <Button asChild variant="link" className="text-white p-0 mt-3">
+                    <Link href={`/blog/${post.fields.slug}`}>Read More</Link>
+                  </Button>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400">
+              <p className="text-xl">No news available yet.</p>
+              <p>Add your first blog post in Contentful!</p>
+            </div>
+          )}
         </div>
       </section>
     </div>
