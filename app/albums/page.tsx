@@ -13,11 +13,12 @@ export default async function AlbumsPage() {
         {albums.length > 0 ? (
           albums.map((album: any) => (
             <div key={album.sys.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-              {album.fields.coverImage && album.fields.coverImage[0] && (
+              {/* Cover Image */}
+              {album.fields.coverImage && album.fields.coverImage.length > 0 && (
                 <div className="relative h-64 w-full">
                   <Image 
                     src={`https:${album.fields.coverImage[0].fields.file.url}`}
-                    alt={album.fields.title}
+                    alt={album.fields.title || 'Album cover'}
                     fill
                     className="object-cover"
                   />
@@ -30,16 +31,18 @@ export default async function AlbumsPage() {
                   Released: {new Date(album.fields.releaseDate).toLocaleDateString()}
                 </p>
                 
+                {/* Description */}
                 {album.fields.description && (
-                  <div className="prose prose-invert max-w-none mb-4">
+                  <div className="prose prose-invert max-w-none mb-4 text-sm">
                     {documentToReactComponents(album.fields.description)}
                   </div>
                 )}
                 
+                {/* Tracklist */}
                 {album.fields.tracklist && (
                   <div className="mt-4">
                     <h3 className="text-xl font-semibold mb-2">Tracklist</h3>
-                    <div className="prose prose-invert max-w-none">
+                    <div className="prose prose-invert max-w-none text-sm">
                       {documentToReactComponents(album.fields.tracklist)}
                     </div>
                   </div>
@@ -48,7 +51,18 @@ export default async function AlbumsPage() {
             </div>
           ))
         ) : (
-          <p className="text-center col-span-3">No albums found. Add some in Contentful!</p>
+          <div className="col-span-3 text-center">
+            <p className="text-xl mb-4">No albums found.</p>
+            <p className="text-zinc-400">Add some albums in your Contentful dashboard!</p>
+          </div>
+        )}
+      </div>
+      
+      {/* Debug info - remove this later */}
+      <div className="mt-8 p-4 bg-zinc-800 rounded text-xs">
+        <p>Debug: Found {albums.length} albums</p>
+        {albums.length > 0 && (
+          <p>First album: {albums[0].fields.title}</p>
         )}
       </div>
     </div>
