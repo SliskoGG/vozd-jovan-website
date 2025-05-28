@@ -2,8 +2,8 @@ import { createClient } from 'contentful';
 
 // This is the Contentful client that will fetch your content
 export const contentfulClient = createClient({
-  space: process.env.CONTENTFUL_SPACE_ID || 'gdcv2ds427ri',
-  accessToken: process.env.CONTENTFUL_ACCESS_TOKEN || 'Q4xItTpKeYBPe7IuVDQSNoyLIMkaLaE7lZf_94VHDtM',
+  space: process.env.CONTENTFUL_SPACE_ID!,
+  accessToken: process.env.CONTENTFUL_ACCESS_TOKEN!,
 });
 
 // Function to get all albums
