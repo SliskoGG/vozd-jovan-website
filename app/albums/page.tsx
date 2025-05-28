@@ -57,14 +57,6 @@ export default async function AlbumsPage() {
           </div>
         )}
       </div>
-      
-      {/* Debug info - remove this later */}
-      <div className="mt-8 p-4 bg-zinc-800 rounded text-xs">
-        <p>Debug: Found {albums.length} albums</p>
-        {albums.length > 0 && (
-          <p>First album: {albums[0].fields.title}</p>
-        )}
-      </div>
     </div>
   );
 }
