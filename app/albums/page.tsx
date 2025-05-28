@@ -1,88 +1,56 @@
-import { PageHeader } from "@/components/page-header"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import Link from "next/link"
-import { ExternalLink } from "lucide-react"
+import Image from 'next/image';
+import { getAlbums } from '@/lib/contentful';
+import { documentToReactComponents } from '@contentful/rich-text-react-renderer';
 
-const albums = [
-  {
-    id: "zlosutni-cetinari-srpske",
-    title: "Zlosutni Cetinari Srpske",
-    year: 2024,
-    image: "/images/album-cover.jpg",
-    description: "An atmospheric journey through the dark forests of Serbian folklore.",
-    tracks: 8,
-  },
-  {
-    id: "shadows-of-the-void",
-    title: "Shadows of the Void",
-    year: 2023,
-    image: "/placeholder.svg?height=400&width=400",
-    description: "Exploring the depths of cosmic horror and existential dread.",
-    tracks: 6,
-  },
-  {
-    id: "blood-moon-rising",
-    title: "Blood Moon Rising",
-    year: 2022,
-    image: "/placeholder.svg?height=400&width=400",
-    description: "Raw black metal fury under the crimson lunar eclipse.",
-    tracks: 7,
-  },
-]
-
-export default function AlbumsPage() {
+export default async function AlbumsPage() {
+  const albums = await getAlbums();
+  
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-gray-900">
-      <PageHeader title="Albums" subtitle="Discography" backgroundImage="/images/background-1.jpg" />
-
-      <section className="py-20 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {albums.map((album) => (
-              <Card
-                key={album.id}
-                className="bg-black/50 border-gray-700 hover:border-gray-500 transition-all duration-300 group backdrop-blur-sm"
-              >
-                <CardContent className="p-0">
-                  <div className="relative overflow-hidden">
-                    <img
-                      src={album.image || "/placeholder.svg"}
-                      alt={`${album.title} album cover`}
-                      className="w-full aspect-square object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <Button asChild size="lg" className="bg-white text-black hover:bg-gray-200">
-                        <Link href={`/albums/${album.id}`}>View Album</Link>
-                      </Button>
+    <div className="container mx-auto px-4 py-12">
+      <h1 className="text-4xl font-bold mb-8 text-center">Albums</h1>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {albums.length > 0 ? (
+          albums.map((album: any) => (
+            <div key={album.sys.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+              {album.fields.coverImage && album.fields.coverImage[0] && (
+                <div className="relative h-64 w-full">
+                  <Image 
+                    src={`https:${album.fields.coverImage[0].fields.file.url}`}
+                    alt={album.fields.title}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              )}
+              
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-2">{album.fields.title}</h2>
+                <p className="text-zinc-400 mb-4">
+                  Released: {new Date(album.fields.releaseDate).toLocaleDateString()}
+                </p>
+                
+                {album.fields.description && (
+                  <div className="prose prose-invert max-w-none mb-4">
+                    {documentToReactComponents(album.fields.description)}
+                  </div>
+                )}
+                
+                {album.fields.tracklist && (
+                  <div className="mt-4">
+                    <h3 className="text-xl font-semibold mb-2">Tracklist</h3>
+                    <div className="prose prose-invert max-w-none">
+                      {documentToReactComponents(album.fields.tracklist)}
                     </div>
                   </div>
-
-                  <div className="p-6">
-                    <h3 className="text-2xl font-light mb-2 text-white">{album.title}</h3>
-                    <p className="text-gray-400 mb-3">
-                      {album.year} • {album.tracks} tracks
-                    </p>
-                    <p className="text-gray-300 mb-4 text-sm leading-relaxed">{album.description}</p>
-
-                    <div className="flex gap-2">
-                      <Button asChild size="sm" className="bg-white text-black hover:bg-gray-200">
-                        <Link href={`/albums/${album.id}`}>View Details</Link>
-                      </Button>
-                      <Button asChild size="sm" variant="outline" className="border-gray-600 hover:bg-gray-800">
-                        <a href="https://bandcamp.com" target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="mr-1 h-3 w-3" />
-                          Bandcamp
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+                )}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-center col-span-3">No albums found. Add some in Contentful!</p>
+        )}
+      </div>
     </div>
-  )
+  );
 }
