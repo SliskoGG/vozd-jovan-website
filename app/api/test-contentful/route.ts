@@ -3,29 +3,55 @@ import { contentfulClient } from '@/lib/contentful';
 
 export async function GET() {
   try {
-    // Test the connection
-    const response = await contentfulClient.getEntries({
+    // Test albums
+    const albumResponse = await contentfulClient.getEntries({
       content_type: 'album',
-      limit: 1
+      limit: 5
+    });
+    
+    // Test blog posts
+    const blogResponse = await contentfulClient.getEntries({
+      content_type: 'blogPost',
+      limit: 5
     });
     
     return NextResponse.json({
       success: true,
       message: 'Contentful connection working!',
-      albumCount: response.items.length,
       spaceId: process.env.CONTENTFUL_SPACE_ID,
       hasAccessToken: !!process.env.CONTENTFUL_ACCESS_TOKEN,
-      firstAlbum: response.items[0] ? {
-        id: response.items[0].sys.id,
-        title: response.items[0].fields.title
-      } : null
+      albums: {
+        count: albumResponse.items.length,
+        items: albumResponse.items.map(item => ({
+          id: item.sys.id,
+          title: item.fields.title,
+          releaseDate: item.fields.releaseDate,
+          hasDescription: !!item.fields.description,
+          hasTracklist: !!item.fields.tracklist,
+          hasCoverImage: !!item.fields.coverImage,
+          coverImageStructure: item.fields.coverImage ? 'present' : 'missing',
+          allFields: Object.keys(item.fields)
+        }))
+      },
+      blogPosts: {
+        count: blogResponse.items.length,
+        items: blogResponse.items.map(item => ({
+          id: item.sys.id,
+          title: item.fields.title,
+          slug: item.fields.slug,
+          publicationDate: item.fields.publicationDate,
+          author: item.fields.author,
+          hasContent: !!item.fields.content,
+          hasFeaturedImage: !!item.fields.featuredImage,
+          allFields: Object.keys(item.fields)
+        }))
+      }
     });
   } catch (error) {
     return NextResponse.json({
       success: false,
       error: error.message,
-      spaceId: process.env.CONTENTFUL_SPACE_ID,
-      hasAccessToken: !!process.env.CONTENTFUL_ACCESS_TOKEN
+      errorDetails: error.toString()
     }, { status: 500 });
   }
 }
