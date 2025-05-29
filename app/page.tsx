@@ -37,7 +37,7 @@ export default async function HomePage() {
         <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
           {/* Artist Name */}
           <h1 className="text-5xl md:text-7xl font-light mb-6 tracking-[0.1em] text-white drop-shadow-2xl">
-            VOZD JOVAN POGANI
+            VOŽD JOVAN POGANI
           </h1>
 
           {/* Tagline */}
