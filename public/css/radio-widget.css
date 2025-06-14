@@ -1,0 +1,536 @@
+<!-- FILE 1: radio-widget.css -->
+/* Save this as: public/css/radio-widget.css */
+
+.radio-widget {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 9999;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.radio-widget.collapsed {
+    width: 50px !important;
+    height: 50px !important;
+}
+
+.radio-widget.expanded {
+    width: 260px;
+    min-height: 85px;
+}
+
+.widget-header {
+    background: rgba(30, 41, 59, 0.8);
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.widget-title {
+    color: #f1f5f9;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 0;
+    letter-spacing: 0.025em;
+}
+
+.collapse-btn {
+    background: none;
+    border: none;
+    color: #cbd5e1;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px;
+    border-radius: 3px;
+    transition: all 0.2s;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.collapse-btn:hover {
+    background: rgba(71, 85, 105, 0.4);
+    color: #f1f5f9;
+}
+
+.widget-content {
+    padding: 12px;
+    display: block;
+}
+
+.radio-widget.collapsed .widget-content {
+    display: none;
+}
+
+.radio-widget.collapsed .widget-header {
+    padding: 15px;
+    justify-content: center;
+    border: none;
+}
+
+.radio-widget.collapsed .widget-title {
+    display: none;
+}
+
+.now-playing {
+    margin-bottom: 10px;
+}
+
+.song-info {
+    color: #f1f5f9;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.song-title {
+    font-weight: 500;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.song-artist {
+    color: #94a3b8;
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.control-btn {
+    background: #1e293b;
+    border: 1px solid rgba(71, 85, 105, 0.4);
+    color: #e2e8f0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 10px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 26px;
+    font-weight: 400;
+}
+
+.control-btn:hover {
+    background: #334155;
+    border-color: rgba(71, 85, 105, 0.6);
+    color: #f1f5f9;
+}
+
+.control-btn:active {
+    transform: translateY(1px);
+}
+
+.control-btn:disabled {
+    background: #0f172a;
+    color: #475569;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.control-btn.active {
+    background: #0f766e;
+    border-color: #14b8a6;
+    color: #f0fdfa;
+}
+
+.play-btn {
+    min-width: 40px;
+}
+
+.volume-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.volume-icon {
+    color: #94a3b8;
+    font-size: 12px;
+    width: 14px;
+}
+
+.volume-slider {
+    flex: 1;
+    height: 3px;
+    background: rgba(71, 85, 105, 0.4);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: #64748b;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.volume-slider::-webkit-slider-thumb:hover {
+    background: #94a3b8;
+}
+
+.volume-slider::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    background: #64748b;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+.volume-label {
+    color: #64748b;
+    font-size: 9px;
+    min-width: 22px;
+    text-align: right;
+}
+
+.status {
+    color: #64748b;
+    font-size: 9px;
+    text-align: center;
+    padding: 2px 0;
+    margin-top: 4px;
+}
+
+.loading {
+    color: #eab308;
+}
+
+.error {
+    color: #dc2626;
+}
+
+.success {
+    color: #059669;
+}
+
+
+<!-- FILE 2: radio-widget.js -->
+/* Save this as: public/js/radio-widget.js */
+
+// Configuration
+const CONFIG = {
+    // Path to your music files (relative to your website root)
+    MUSIC_PATH: '/music/',
+    
+    // List your music files here
+    SONGS: [
+        {
+            title: 'Kinematograf naseg detinjstva',
+            artist: 'Atomsko skloniste',
+            filename: 'Atomsko_skloniste-Kinematograf_naseg_detinjstva.mp3'
+        },
+        {
+            title: 'Ne cvikaj generacijo',
+            artist: 'Atomsko skloniste',
+            filename: 'Atomsko_skloniste-Ne_cvikaj_generacijo.mp3'
+        },
+        {
+            title: 'Nek vam je sa srecom',
+            artist: 'Atomsko skloniste',
+            filename: 'Atomsko_skloniste-Nek_vam_je_sa_srecom.mp3'
+        }
+        // Add more songs here as needed
+    ]
+};
+
+// Radio Player Class
+class WebRadioPlayer {
+    constructor() {
+        this.currentSong = null;
+        this.currentAudio = null;
+        this.nextAudio = null;
+        this.playlist = [];
+        this.currentIndex = 0;
+        this.isPlaying = false;
+        this.isShuffled = true;
+        this.volume = 0.7;
+        this.isLoading = false;
+        
+        this.initializeElements();
+        this.loadPlaylist();
+    }
+
+    initializeElements() {
+        this.playBtn = document.getElementById('playBtn');
+        this.nextBtn = document.getElementById('nextBtn');
+        this.shuffleBtn = document.getElementById('shuffleBtn');
+        this.volumeSlider = document.getElementById('volumeSlider');
+        this.volumeDisplay = document.getElementById('volumeDisplay');
+        this.songTitle = document.getElementById('songTitle');
+        this.songArtist = document.getElementById('songArtist');
+        this.status = document.getElementById('status');
+        
+        // Set shuffle button as active by default
+        this.shuffleBtn.classList.add('active');
+    }
+
+    async loadPlaylist() {
+        this.updateStatus('Loading playlist...', 'loading');
+        
+        try {
+            // Create playlist with full URLs
+            this.playlist = CONFIG.SONGS.map(song => ({
+                title: song.title,
+                artist: song.artist,
+                url: CONFIG.MUSIC_PATH + song.filename,
+                filename: song.filename
+            }));
+
+            if (this.playlist.length > 0) {
+                this.shufflePlaylist();
+                this.updateSongInfo();
+                this.preloadCurrentSong();
+                this.updateStatus(`Loaded ${this.playlist.length} songs`, 'success');
+            } else {
+                this.updateStatus('No songs found', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading playlist:', error);
+            this.updateStatus('Load error', 'error');
+        }
+    }
+
+    shufflePlaylist() {
+        if (this.isShuffled) {
+            for (let i = this.playlist.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [this.playlist[i], this.playlist[j]] = [this.playlist[j], this.playlist[i]];
+            }
+        }
+    }
+
+    async preloadCurrentSong() {
+        if (this.playlist.length === 0) return;
+        
+        const song = this.playlist[this.currentIndex];
+        this.currentAudio = new Audio(song.url);
+        this.currentAudio.volume = this.volume;
+        
+        this.currentAudio.addEventListener('ended', () => this.nextSong());
+        this.currentAudio.addEventListener('loadstart', () => this.updateStatus('Loading...', 'loading'));
+        this.currentAudio.addEventListener('canplay', () => this.updateStatus('Ready', 'success'));
+        this.currentAudio.addEventListener('error', () => this.updateStatus('Error loading song', 'error'));
+        
+        // Preload next song
+        this.preloadNextSong();
+    }
+
+    async preloadNextSong() {
+        const nextIndex = (this.currentIndex + 1) % this.playlist.length;
+        const nextSong = this.playlist[nextIndex];
+        
+        this.nextAudio = new Audio(nextSong.url);
+        this.nextAudio.volume = this.volume;
+    }
+
+    updateSongInfo() {
+        if (this.playlist.length === 0) return;
+        
+        const song = this.playlist[this.currentIndex];
+        this.songTitle.textContent = song.title;
+        this.songArtist.textContent = song.artist;
+    }
+
+    updateStatus(message, type = '') {
+        this.status.textContent = message;
+        this.status.className = `status ${type}`;
+    }
+
+    async togglePlay() {
+        if (this.playlist.length === 0) {
+            this.updateStatus('No songs', 'error');
+            return;
+        }
+
+        if (!this.currentAudio) {
+            await this.preloadCurrentSong();
+        }
+
+        if (this.isPlaying) {
+            this.currentAudio.pause();
+            this.playBtn.textContent = 'Play';
+            this.updateStatus('Paused', '');
+        } else {
+            try {
+                await this.currentAudio.play();
+                this.playBtn.textContent = 'Pause';
+                this.updateStatus('Playing', 'success');
+            } catch (error) {
+                console.error('Play error:', error);
+                this.updateStatus('Play error', 'error');
+                return;
+            }
+        }
+        
+        this.isPlaying = !this.isPlaying;
+    }
+
+    nextSong() {
+        if (this.playlist.length === 0) return;
+
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+        }
+
+        this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
+        
+        // Use preloaded next song if available
+        if (this.nextAudio) {
+            this.currentAudio = this.nextAudio;
+            this.nextAudio = null;
+        }
+
+        this.updateSongInfo();
+        this.preloadNextSong();
+
+        if (this.isPlaying) {
+            this.currentAudio.play().catch(error => {
+                console.error('Play error:', error);
+                this.updateStatus('Play error', 'error');
+            });
+        }
+    }
+
+    toggleShuffle() {
+        this.isShuffled = !this.isShuffled;
+        
+        if (this.isShuffled) {
+            this.shuffleBtn.classList.add('active');
+            this.shufflePlaylist();
+            this.currentIndex = 0;
+            this.updateSongInfo();
+            this.preloadCurrentSong();
+        } else {
+            this.shuffleBtn.classList.remove('active');
+        }
+    }
+
+    setVolume(value) {
+        this.volume = value / 100;
+        this.volumeDisplay.textContent = `${value}%`;
+        
+        if (this.currentAudio) {
+            this.currentAudio.volume = this.volume;
+        }
+        if (this.nextAudio) {
+            this.nextAudio.volume = this.volume;
+        }
+    }
+}
+
+// Widget Controls
+function toggleWidget() {
+    const widget = document.getElementById('radioWidget');
+    const collapseBtn = document.getElementById('collapseBtn');
+    
+    if (widget.classList.contains('collapsed')) {
+        widget.classList.remove('collapsed');
+        widget.classList.add('expanded');
+        collapseBtn.textContent = '−';
+    } else {
+        widget.classList.remove('expanded');
+        widget.classList.add('collapsed');
+        collapseBtn.textContent = '+';
+    }
+}
+
+// Initialize player when page loads
+let radioPlayer;
+window.addEventListener('DOMContentLoaded', () => {
+    radioPlayer = new WebRadioPlayer();
+});
+
+// Global functions for button onclick events
+function togglePlay() {
+    radioPlayer.togglePlay();
+}
+
+function nextSong() {
+    radioPlayer.nextSong();
+}
+
+function toggleShuffle() {
+    radioPlayer.toggleShuffle();
+}
+
+function setVolume(value) {
+    radioPlayer.setVolume(value);
+}
+
+
+<!-- FILE 3: Widget HTML -->
+<!-- Add this HTML to your website template where you want the widget -->
+
+<div class="radio-widget expanded" id="radioWidget">
+    <div class="widget-header" onclick="toggleWidget()">
+        <h3 class="widget-title">Radio</h3>
+        <button class="collapse-btn" id="collapseBtn">−</button>
+    </div>
+    <div class="widget-content">
+        <div class="now-playing">
+            <div class="song-info">
+                <div class="song-title" id="songTitle">Ready to play</div>
+                <div class="song-artist" id="songArtist">Click play to start</div>
+            </div>
+        </div>
+        <div class="controls">
+            <button class="control-btn play-btn" id="playBtn" onclick="togglePlay()">
+                Play
+            </button>
+            <button class="control-btn" id="nextBtn" onclick="nextSong()">
+                Next
+            </button>
+            <button class="control-btn" id="shuffleBtn" onclick="toggleShuffle()">
+                Shuffle
+            </button>
+        </div>
+        <div class="volume-container">
+            <span class="volume-icon">♪</span>
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="70" onchange="setVolume(this.value)">
+            <span class="volume-label" id="volumeDisplay">70%</span>
+        </div>
+        <div class="status" id="status">Ready</div>
+    </div>
+</div>
+
+
+<!-- FILE 4: Include in your page <head> -->
+<!-- Add these lines to your website's <head> section -->
+
+<link rel="stylesheet" href="/css/radio-widget.css">
+
+
+<!-- FILE 5: Include before closing </body> -->
+<!-- Add this line before your closing </body> tag -->
+
+<script src="/js/radio-widget.js"></script>
