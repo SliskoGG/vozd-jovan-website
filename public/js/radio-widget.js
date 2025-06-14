@@ -5,23 +5,22 @@ const CONFIG = {
     
     // List your music files here
     SONGS: [
-        {
-            title: 'Kinematograf naseg detinjstva',
-            artist: 'Atomsko skloniste',
-            filename: 'Atomsko_skloniste-Kinematograf_naseg_detinjstva.mp3'
-        },
-        {
-            title: 'Ne cvikaj generacijo',
-            artist: 'Atomsko skloniste',
-            filename: 'Atomsko_skloniste-Ne_cvikaj_generacijo.mp3'
-        },
-        {
-            title: 'Nek vam je sa srecom',
-            artist: 'Atomsko skloniste',
-            filename: 'Atomsko_skloniste-Nek_vam_je_sa_srecom.mp3'
-        }
-        // Add more songs here as needed
-    ]
+    {
+        title: 'Kinematograf naseg detinjstva',
+        artist: 'Atomsko skloniste',
+        filename: 'Atomsko_skloniste-Kinematograf_naseg_detinjstva.mp3'
+    },
+    {
+        title: 'Nek vam je sa srecom', 
+        artist: 'Atomsko skloniste',
+        filename: 'Atomsko_skloniste-Nek_vam_je_sa_srecom.mp3'
+    },
+    {
+        title: 'Ne cvikaj generacijo',
+        artist: 'Atomsko skloniste', 
+        filename: 'Atomsko_skloniste-Ne_cvikaj_generacijo.mp3'
+    }
+]
 };
 
 // Radio Player Class
