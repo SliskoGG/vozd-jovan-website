@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 interface Song {
   title: string
@@ -10,7 +10,7 @@ interface Song {
 }
 
 const CONFIG = {
-  MUSIC_PATH: '/',  // Files are directly in public/ folder, not in music/ subfolder
+  MUSIC_PATH: '/',  // Files are directly in public/ folder
   SONGS: [
     {
       title: 'Kinematograf naseg detinjstva',
@@ -31,17 +31,19 @@ const CONFIG = {
 }
 
 export function RadioWidget() {
-  const [isCollapsed, setIsCollapsed] = useState(true)  // Start collapsed
+  const [isCollapsed, setIsCollapsed] = useState(true)  
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentSong, setCurrentSong] = useState<Song | null>(null)
-  const [volume, setVolume] = useState(50)  // Default 50%
+  const [volume, setVolume] = useState(50)  
   const [status, setStatus] = useState('Ready')
   const [playlist, setPlaylist] = useState<Song[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isShuffled, setIsShuffled] = useState(true)
-  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null)
+  
+  // Use useRef to maintain single audio instance
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  // Initialize playlist and autoplay
+  // Initialize playlist
   useEffect(() => {
     const songs = CONFIG.SONGS.map(song => ({
       ...song,
@@ -70,155 +72,144 @@ export function RadioWidget() {
     setPlaylist(songs)
     if (songs.length > 0) {
       setCurrentSong(songs[0])
+      setCurrentIndex(0)
       setStatus(`Loaded ${songs.length} songs`)
-      
-      // Autoplay after a short delay
-      setTimeout(() => {
-        autoPlay(songs[0])
-      }, 1000)
     }
   }, [isShuffled])
 
-  // Autoplay function
-  const autoPlay = async (song: Song) => {
-    if (!song) return
+  // Handle song changes and audio setup
+  useEffect(() => {
+    if (!currentSong) return
+
+    // Clean up previous audio
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.removeEventListener('ended', handleSongEnd)
+      audioRef.current.removeEventListener('loadstart', handleLoadStart)
+      audioRef.current.removeEventListener('canplay', handleCanPlay)
+      audioRef.current.removeEventListener('error', handleError)
+      audioRef.current.removeEventListener('loadeddata', handleLoadedData)
+    }
+
+    // Create new audio element
+    const audio = new Audio()
+    audio.crossOrigin = "anonymous"
+    audio.preload = "metadata"
+    audio.volume = volume / 100
+    audio.src = currentSong.url
+
+    // Add event listeners
+    audio.addEventListener('ended', handleSongEnd)
+    audio.addEventListener('loadstart', handleLoadStart)
+    audio.addEventListener('canplay', handleCanPlay)
+    audio.addEventListener('error', handleError)
+    audio.addEventListener('loadeddata', handleLoadedData)
+
+    audioRef.current = audio
+
+    console.log('Loading song:', currentSong.url)
     
+    return () => {
+      // Cleanup on unmount or song change
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.src = ''
+        audioRef.current.load()
+      }
+    }
+  }, [currentSong])
+
+  // Autoplay after initial setup
+  useEffect(() => {
+    if (currentSong && audioRef.current && !isPlaying) {
+      // Autoplay after a short delay
+      const timer = setTimeout(() => {
+        attemptAutoplay()
+      }, 1000)
+      
+      return () => clearTimeout(timer)
+    }
+  }, [currentSong])
+
+  // Update volume when it changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume / 100
+    }
+  }, [volume])
+
+  // Event handlers
+  const handleSongEnd = () => {
+    nextSong()
+  }
+
+  const handleLoadStart = () => {
+    setStatus('Loading...')
+  }
+
+  const handleCanPlay = () => {
+    setStatus('Ready')
+  }
+
+  const handleError = (e: Event) => {
+    console.error('Audio error:', e)
+    setStatus('Error loading')
+    setIsPlaying(false)
+  }
+
+  const handleLoadedData = () => {
+    console.log('Data loaded:', currentSong?.url)
+  }
+
+  const attemptAutoplay = async () => {
+    if (!audioRef.current || !currentSong) return
+
     try {
-      const audio = new Audio()
-      audio.crossOrigin = "anonymous"
-      audio.preload = "metadata"
-      audio.volume = volume / 100
-      audio.src = song.url
-      
-      audio.addEventListener('ended', () => nextSong())
-      audio.addEventListener('loadstart', () => setStatus('Loading...'))
-      audio.addEventListener('canplay', () => setStatus('Ready'))
-      audio.addEventListener('error', (e) => {
-        console.error('Auto-play error:', e)
-        setStatus('Error loading')
-      })
-      
-      setCurrentAudio(audio)
-      
-      // Try to autoplay
-      await audio.play()
+      await audioRef.current.play()
       setIsPlaying(true)
       setStatus('Playing')
+      console.log('Autoplay successful')
     } catch (error) {
       console.log('Autoplay blocked - user interaction required')
       setStatus('Click play to start')
+      setIsPlaying(false)
     }
   }
-
-  // Update current audio when song changes
-  useEffect(() => {
-    if (currentSong) {
-      console.log('Loading song:', currentSong.url)
-      const audio = new Audio()
-      
-      // Add CORS settings
-      audio.crossOrigin = "anonymous"
-      audio.preload = "metadata"
-      audio.volume = volume / 100
-      
-      audio.addEventListener('ended', () => {
-        nextSong()
-      })
-      
-      audio.addEventListener('loadstart', () => {
-        console.log('Loading started:', currentSong.url)
-        setStatus('Loading...')
-      })
-      
-      audio.addEventListener('canplay', () => {
-        console.log('Can play:', currentSong.url)
-        setStatus('Ready')
-      })
-      
-      audio.addEventListener('error', (e) => {
-        console.error('Audio error:', e, currentSong.url)
-        setStatus('Error loading')
-      })
-      
-      audio.addEventListener('loadeddata', () => {
-        console.log('Data loaded:', currentSong.url)
-      })
-      
-      // Set source after event listeners
-      audio.src = currentSong.url
-      
-      setCurrentAudio(audio)
-      
-      return () => {
-        audio.pause()
-        audio.src = ''
-        audio.load()
-      }
-    }
-  }, [currentSong, volume])
 
   const toggleWidget = () => {
     setIsCollapsed(!isCollapsed)
   }
 
   const togglePlay = async () => {
-    if (!currentSong) {
+    if (!currentSong || !audioRef.current) {
       setStatus('No song selected')
       return
     }
 
-    console.log('Attempting to play:', currentSong.url)
-
-    if (!currentAudio) {
-      setStatus('Audio not loaded')
-      return
-    }
-
-    if (isPlaying) {
-      currentAudio.pause()
-      setIsPlaying(false)
-      setStatus('Paused')
-    } else {
-      try {
-        // Check if the audio source is valid
-        if (!currentAudio.src || currentAudio.src === window.location.href) {
-          console.error('Invalid audio source:', currentAudio.src)
-          setStatus('Invalid source')
-          return
-        }
-
-        await currentAudio.play()
+    try {
+      if (isPlaying) {
+        audioRef.current.pause()
+        setIsPlaying(false)
+        setStatus('Paused')
+      } else {
+        await audioRef.current.play()
         setIsPlaying(true)
         setStatus('Playing')
-      } catch (error) {
-        console.error('Play error:', error)
-        console.error('Audio src:', currentAudio.src)
-        console.error('Audio readyState:', currentAudio.readyState)
-        setStatus('Play error')
-        
-        // Try to reload the audio
-        if (currentSong) {
-          console.log('Retrying with fresh audio element...')
-          const newAudio = new Audio()
-          newAudio.crossOrigin = "anonymous"
-          newAudio.src = currentSong.url
-          newAudio.volume = volume / 100
-          setCurrentAudio(newAudio)
-        }
       }
+    } catch (error) {
+      console.error('Play error:', error)
+      setStatus('Play error')
+      setIsPlaying(false)
     }
   }
 
   const nextSong = () => {
     if (playlist.length === 0) return
     
-    if (currentAudio) {
-      currentAudio.pause()
-    }
-    
     const nextIndex = (currentIndex + 1) % playlist.length
     setCurrentIndex(nextIndex)
     setCurrentSong(playlist[nextIndex])
+    setIsPlaying(false) // Will attempt autoplay in useEffect
   }
 
   const toggleShuffle = () => {
@@ -228,9 +219,7 @@ export function RadioWidget() {
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseInt(e.target.value)
     setVolume(newVolume)
-    if (currentAudio) {
-      currentAudio.volume = newVolume / 100
-    }
+    // Volume will be applied in useEffect
   }
 
   return (
