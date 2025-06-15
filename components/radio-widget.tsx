@@ -39,6 +39,8 @@ export function RadioWidget() {
   const [playlist, setPlaylist] = useState<Song[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isShuffled, setIsShuffled] = useState(true)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   
   // Use useRef to maintain single audio instance
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -66,21 +68,24 @@ export function RadioWidget() {
       }
     })
     
-    if (isShuffled) {
-      // Shuffle the playlist
-      for (let i = songs.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [songs[i], songs[j]] = [songs[j], songs[i]]
+    // Only shuffle on initial load, not when shuffle is toggled
+    if (playlist.length === 0) {
+      if (isShuffled) {
+        // Shuffle the playlist
+        for (let i = songs.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [songs[i], songs[j]] = [songs[j], songs[i]]
+        }
+      }
+      
+      setPlaylist(songs)
+      if (songs.length > 0) {
+        setCurrentSong(songs[0])
+        setCurrentIndex(0)
+        setStatus(`Loaded ${songs.length} songs`)
       }
     }
-    
-    setPlaylist(songs)
-    if (songs.length > 0) {
-      setCurrentSong(songs[0])
-      setCurrentIndex(0)
-      setStatus(`Loaded ${songs.length} songs`)
-    }
-  }, [isShuffled])
+  }, []) // Remove isShuffled dependency
 
   // Handle song changes and audio setup
   useEffect(() => {
@@ -94,6 +99,8 @@ export function RadioWidget() {
       audioRef.current.removeEventListener('canplay', handleCanPlay)
       audioRef.current.removeEventListener('error', handleError)
       audioRef.current.removeEventListener('loadeddata', handleLoadedData)
+      audioRef.current.removeEventListener('timeupdate', handleTimeUpdate)
+      audioRef.current.removeEventListener('loadedmetadata', handleLoadedMetadata)
     }
 
     // Create new audio element
@@ -109,6 +116,8 @@ export function RadioWidget() {
     audio.addEventListener('canplay', handleCanPlay)
     audio.addEventListener('error', handleError)
     audio.addEventListener('loadeddata', handleLoadedData)
+    audio.addEventListener('timeupdate', handleTimeUpdate)
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata)
 
     audioRef.current = audio
 
@@ -189,6 +198,18 @@ export function RadioWidget() {
 
   const handleLoadedData = () => {
     console.log('Data loaded:', currentSong?.url)
+  }
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime)
+    }
+  }
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration)
+    }
   }
 
   const attemptAutoplay = async () => {
@@ -282,8 +303,18 @@ export function RadioWidget() {
     setIsPlaying(false) // Will attempt autoplay in useEffect
   }
 
+  const previousSong = () => {
+    if (playlist.length === 0) return
+    
+    const prevIndex = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1
+    setCurrentIndex(prevIndex)
+    setCurrentSong(playlist[prevIndex])
+    setIsPlaying(false) // Will attempt autoplay in useEffect
+  }
+
   const toggleShuffle = () => {
     setIsShuffled(!isShuffled)
+    // Don't recreate playlist or stop music, just toggle the state
   }
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -296,6 +327,26 @@ export function RadioWidget() {
   const truncateText = (text: string, maxLength: number = 40) => {
     if (text.length <= maxLength) return text
     return text.substring(0, maxLength - 3) + '...'
+  }
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return '0:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return
+    
+    const progressBar = e.currentTarget
+    const rect = progressBar.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const clickProgress = clickX / rect.width
+    const newTime = clickProgress * duration
+    
+    audioRef.current.currentTime = newTime
+    setCurrentTime(newTime)
   }
 
   return (
@@ -323,8 +374,8 @@ export function RadioWidget() {
         
         .radio-widget.expanded {
           width: 320px;
-          min-height: 120px;
-          max-height: 120px;
+          min-height: 140px;
+          max-height: 140px;
         }
         
         .widget-header {
@@ -538,6 +589,37 @@ export function RadioWidget() {
           min-width: 28px;
           text-align: right;
         }
+
+        .progress-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+
+        .progress-bar {
+          flex: 1;
+          height: 6px;
+          background: rgba(71, 85, 105, 0.4);
+          border-radius: 3px;
+          cursor: pointer;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .progress-fill {
+          height: 100%;
+          background: #14b8a6;
+          border-radius: 3px;
+          transition: width 0.1s ease;
+        }
+
+        .time-display {
+          color: #64748b;
+          font-size: 10px;
+          min-width: 35px;
+          text-align: center;
+        }
         
         .status {
           color: #64748b;
@@ -573,6 +655,9 @@ export function RadioWidget() {
           {/* Expanded view - shows when expanded */}
           <div className="header-controls">
             <div className="controls">
+              <button className="control-btn" onClick={previousSong}>
+                ⏮ Prev
+              </button>
               <button className="control-btn play-btn" onClick={togglePlay}>
                 {isPlaying ? '⏸ Pause' : '▶ Play'}
               </button>
@@ -603,6 +688,17 @@ export function RadioWidget() {
                 {currentSong?.artist || 'Click ▶ to start'}
               </div>
             </div>
+          </div>
+
+          <div className="progress-container">
+            <span className="time-display">{formatTime(currentTime)}</span>
+            <div className="progress-bar" onClick={handleProgressClick}>
+              <div 
+                className="progress-fill" 
+                style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+              ></div>
+            </div>
+            <span className="time-display">{formatTime(duration)}</span>
           </div>
           
           <div className="volume-container">
