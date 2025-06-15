@@ -223,9 +223,44 @@ export function RadioWidget() {
   }
 
   const toggleShuffle = () => {
-    setIsShuffled(!isShuffled)
-    // Just toggle the state, don't recreate playlist
+  const newShuffleState = !isShuffled
+  setIsShuffled(newShuffleState)
+  
+  if (newShuffleState) {
+    // Shuffle the playlist but keep current song at current position
+    const currentSongObj = currentSong
+    const otherSongs = playlist.filter((_, index) => index !== currentIndex)
+    
+    // Shuffle the other songs
+    for (let i = otherSongs.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [otherSongs[i], otherSongs[j]] = [otherSongs[j], otherSongs[i]]
+    }
+    
+    // Put current song first, then shuffled songs
+    const newPlaylist = [currentSongObj, ...otherSongs]
+    setPlaylist(newPlaylist)
+    setCurrentIndex(0)
+  } else {
+    // Restore original order - reload from JSON
+    const loadOriginalOrder = async () => {
+      try {
+        const response = await fetch('/songs.json')
+        const originalSongs = await response.json()
+        setPlaylist(originalSongs)
+        
+        // Find current song in original playlist
+        const newIndex = originalSongs.findIndex(song => 
+          song.filename === currentSong?.filename
+        )
+        setCurrentIndex(newIndex >= 0 ? newIndex : 0)
+      } catch (error) {
+        console.error('Failed to restore original order:', error)
+      }
+    }
+    loadOriginalOrder()
   }
+}
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseInt(e.target.value)
