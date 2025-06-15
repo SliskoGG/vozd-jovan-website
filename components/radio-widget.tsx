@@ -10,7 +10,7 @@ interface Song {
 }
 
 const CONFIG = {
-  MUSIC_PATH: '/music/',
+  MUSIC_PATH: '/',  // Files are directly in public/ folder, not in music/ subfolder
   SONGS: [
     {
       title: 'Kinematograf naseg detinjstva',
@@ -48,6 +48,17 @@ export function RadioWidget() {
       url: CONFIG.MUSIC_PATH + song.filename
     }))
     
+    // Test if files are accessible
+    songs.forEach(song => {
+      fetch(song.url, { method: 'HEAD' })
+        .then(response => {
+          console.log(`File ${song.filename}:`, response.ok ? 'Found' : 'Not found', response.status)
+        })
+        .catch(error => {
+          console.error(`File ${song.filename} error:`, error)
+        })
+    })
+    
     if (isShuffled) {
       // Shuffle the playlist
       for (let i = songs.length - 1; i > 0; i--) {
@@ -66,32 +77,66 @@ export function RadioWidget() {
   // Update current audio when song changes
   useEffect(() => {
     if (currentSong) {
-      const audio = new Audio(currentSong.url)
+      console.log('Loading song:', currentSong.url)
+      const audio = new Audio()
+      
+      // Add CORS settings
+      audio.crossOrigin = "anonymous"
+      audio.preload = "metadata"
       audio.volume = volume / 100
       
       audio.addEventListener('ended', () => {
         nextSong()
       })
       
-      audio.addEventListener('loadstart', () => setStatus('Loading...'))
-      audio.addEventListener('canplay', () => setStatus('Ready'))
-      audio.addEventListener('error', () => setStatus('Error loading'))
+      audio.addEventListener('loadstart', () => {
+        console.log('Loading started:', currentSong.url)
+        setStatus('Loading...')
+      })
+      
+      audio.addEventListener('canplay', () => {
+        console.log('Can play:', currentSong.url)
+        setStatus('Ready')
+      })
+      
+      audio.addEventListener('error', (e) => {
+        console.error('Audio error:', e, currentSong.url)
+        setStatus('Error loading')
+      })
+      
+      audio.addEventListener('loadeddata', () => {
+        console.log('Data loaded:', currentSong.url)
+      })
+      
+      // Set source after event listeners
+      audio.src = currentSong.url
       
       setCurrentAudio(audio)
       
       return () => {
         audio.pause()
-        audio.remove()
+        audio.src = ''
+        audio.load()
       }
     }
-  }, [currentSong])
+  }, [currentSong, volume])
 
   const toggleWidget = () => {
     setIsCollapsed(!isCollapsed)
   }
 
   const togglePlay = async () => {
-    if (!currentAudio || !currentSong) return
+    if (!currentSong) {
+      setStatus('No song selected')
+      return
+    }
+
+    console.log('Attempting to play:', currentSong.url)
+
+    if (!currentAudio) {
+      setStatus('Audio not loaded')
+      return
+    }
 
     if (isPlaying) {
       currentAudio.pause()
@@ -99,12 +144,31 @@ export function RadioWidget() {
       setStatus('Paused')
     } else {
       try {
+        // Check if the audio source is valid
+        if (!currentAudio.src || currentAudio.src === window.location.href) {
+          console.error('Invalid audio source:', currentAudio.src)
+          setStatus('Invalid source')
+          return
+        }
+
         await currentAudio.play()
         setIsPlaying(true)
         setStatus('Playing')
       } catch (error) {
         console.error('Play error:', error)
+        console.error('Audio src:', currentAudio.src)
+        console.error('Audio readyState:', currentAudio.readyState)
         setStatus('Play error')
+        
+        // Try to reload the audio
+        if (currentSong) {
+          console.log('Retrying with fresh audio element...')
+          const newAudio = new Audio()
+          newAudio.crossOrigin = "anonymous"
+          newAudio.src = currentSong.url
+          newAudio.volume = volume / 100
+          setCurrentAudio(newAudio)
+        }
       }
     }
   }
@@ -152,18 +216,19 @@ export function RadioWidget() {
         }
         
         .radio-widget.collapsed {
-          width: 50px !important;
-          height: 50px !important;
+          width: 40px !important;
+          height: 40px !important;
         }
         
         .radio-widget.expanded {
-          width: 260px;
-          min-height: 85px;
+          width: 200px;
+          min-height: 60px;
+          max-height: 60px;
         }
         
         .widget-header {
           background: rgba(30, 41, 59, 0.8);
-          padding: 8px 12px;
+          padding: 4px 8px;
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -173,7 +238,7 @@ export function RadioWidget() {
         
         .widget-title {
           color: #f1f5f9;
-          font-size: 12px;
+          font-size: 10px;
           font-weight: 500;
           margin: 0;
           letter-spacing: 0.025em;
@@ -184,19 +249,19 @@ export function RadioWidget() {
           border: none;
           color: #cbd5e1;
           cursor: pointer;
-          font-size: 14px;
-          padding: 4px;
+          font-size: 12px;
+          padding: 2px;
           border-radius: 3px;
           transition: all 0.2s;
-          width: 20px;
-          height: 20px;
+          width: 16px;
+          height: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
         }
         
         .widget-content {
-          padding: 12px;
+          padding: 6px;
           display: block;
         }
         
@@ -205,7 +270,7 @@ export function RadioWidget() {
         }
         
         .radio-widget.collapsed .widget-header {
-          padding: 15px;
+          padding: 12px;
           justify-content: center;
           border: none;
         }
@@ -215,18 +280,18 @@ export function RadioWidget() {
         }
         
         .now-playing {
-          margin-bottom: 10px;
+          margin-bottom: 4px;
         }
         
         .song-info {
           color: #f1f5f9;
-          font-size: 11px;
-          line-height: 1.3;
+          font-size: 9px;
+          line-height: 1.2;
         }
         
         .song-title {
           font-weight: 500;
-          margin-bottom: 2px;
+          margin-bottom: 1px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -234,7 +299,7 @@ export function RadioWidget() {
         
         .song-artist {
           color: #94a3b8;
-          font-size: 10px;
+          font-size: 8px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -243,24 +308,24 @@ export function RadioWidget() {
         .controls {
           display: flex;
           align-items: center;
-          gap: 6px;
-          margin-bottom: 10px;
+          gap: 3px;
+          margin-bottom: 4px;
         }
         
         .control-btn {
           background: #1e293b;
           border: 1px solid rgba(71, 85, 105, 0.4);
           color: #e2e8f0;
-          padding: 6px 8px;
-          border-radius: 4px;
+          padding: 3px 6px;
+          border-radius: 3px;
           cursor: pointer;
-          font-size: 10px;
+          font-size: 8px;
           transition: all 0.2s;
           display: flex;
           align-items: center;
           justify-content: center;
-          min-width: 30px;
-          height: 26px;
+          min-width: 20px;
+          height: 18px;
           font-weight: 400;
         }
         
@@ -277,26 +342,26 @@ export function RadioWidget() {
         }
         
         .play-btn {
-          min-width: 40px;
+          min-width: 30px;
         }
         
         .volume-container {
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 4px;
         }
         
         .volume-icon {
           color: #94a3b8;
-          font-size: 12px;
-          width: 14px;
+          font-size: 10px;
+          width: 12px;
         }
         
         .volume-slider {
           flex: 1;
-          height: 3px;
+          height: 2px;
           background: rgba(71, 85, 105, 0.4);
-          border-radius: 2px;
+          border-radius: 1px;
           outline: none;
           cursor: pointer;
           appearance: none;
@@ -304,17 +369,17 @@ export function RadioWidget() {
         
         .volume-label {
           color: #64748b;
-          font-size: 9px;
-          min-width: 22px;
+          font-size: 7px;
+          min-width: 18px;
           text-align: right;
         }
         
         .status {
           color: #64748b;
-          font-size: 9px;
+          font-size: 7px;
           text-align: center;
-          padding: 2px 0;
-          margin-top: 4px;
+          padding: 1px 0;
+          margin-top: 2px;
         }
         
         .status.success {
