@@ -1,7 +1,6 @@
 'use client'
 
-import React from 'react'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 interface Song {
   title: string
@@ -10,402 +9,233 @@ interface Song {
   url: string
 }
 
-const MUSIC_PATH = '/';  // Files are directly in public/ folder
-const SONGS = [
-  {
-    title: 'Kinematograf naseg detinjstva',
-    artist: 'Atomsko skloniste',
-    filename: 'Atomsko_skloniste-Kinematograf_naseg_detinjstva.mp3'
-  },
-  {
-    title: 'Nek vam je sa srecom',
-    artist: 'Atomsko skloniste', 
-    filename: 'Atomsko_skloniste-Nek_vam_je_sa_srecom.mp3'
-  },
-  {
-    title: 'Ne cvikaj generacijo',
-    artist: 'Atomsko skloniste',
-    filename: 'Atomsko_skloniste-Ne_cvikaj_generacijo.mp3'
-  }
-]
-
-const AUTOPLAY_DELAY_MS = 2000;
-const AUTOPLAY_EXTRA_DELAY_MS = 3000;
-const ERROR_SKIP_DELAY_MS = 2000;
-const RELOAD_DELAY_MS = 1000;
-const MAX_SONG_INFO_LENGTH = 40;
-const COLLAPSED_SONG_INFO_LENGTH = 35;
-
-function shuffleArray<T>(array: T[]): T[] {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function truncateText(text: string, maxLength: number = MAX_SONG_INFO_LENGTH) {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + '...';
-}
-
-type AudioStatus = 'Ready' | 'Loading...' | 'Playing' | 'Paused' | string;
-
-function useAudioPlayer(
-  playlist: Song[],
-  currentIndex: number,
-  volume: number,
-  onSongEnd: () => void,
-  onError: (msg: string) => void,
-  isPlaying: boolean,
-  setIsPlaying: (v: boolean) => void,
-  setStatus: (s: AudioStatus) => void
-) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const currentSong = playlist[currentIndex] || null;
-
-  // Stable event handlers
-  const handleSongEnd = useCallback(() => {
-    onSongEnd();
-  }, [onSongEnd]);
-
-  const handleLoadStart = useCallback(() => {
-    setStatus('Loading...');
-  }, [setStatus]);
-
-  const handleCanPlay = useCallback(() => {
-    setStatus('Ready');
-  }, [setStatus]);
-
-  const handleError = useCallback((e: Event) => {
-    const error = e.target as HTMLAudioElement;
-    onError(`Error: ${currentSong?.title || 'Unknown'}`);
-    setIsPlaying(false);
-    setTimeout(() => {
-      onSongEnd();
-    }, ERROR_SKIP_DELAY_MS);
-  }, [onError, currentSong, setIsPlaying, onSongEnd]);
-
-  const handleLoadedData = useCallback(() => {}, []);
-
-  // Setup audio element on song change
-  useEffect(() => {
-    if (!currentSong) return;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.removeEventListener('ended', handleSongEnd);
-      audioRef.current.removeEventListener('loadstart', handleLoadStart);
-      audioRef.current.removeEventListener('canplay', handleCanPlay);
-      audioRef.current.removeEventListener('error', handleError);
-      audioRef.current.removeEventListener('loadeddata', handleLoadedData);
+const CONFIG = {
+  MUSIC_PATH: '/',
+  SONGS: [
+    {
+      title: 'Kinematograf naseg detinjstva',
+      artist: 'Atomsko skloniste',
+      filename: 'Atomsko_skloniste-Kinematograf_naseg_detinjstva.mp3'
+    },
+    {
+      title: 'Nek vam je sa srecom',
+      artist: 'Atomsko skloniste', 
+      filename: 'Atomsko_skloniste-Nek_vam_je_sa_srecom.mp3'
+    },
+    {
+      title: 'Ne cvikaj generacijo',
+      artist: 'Atomsko skloniste',
+      filename: 'Atomsko_skloniste-Ne_cvikaj_generacijo.mp3'
     }
-    const audio = new Audio();
-    audio.crossOrigin = 'anonymous';
-    audio.preload = 'metadata';
-    audio.volume = volume / 100;
-    audio.src = currentSong.url;
-    audio.addEventListener('ended', handleSongEnd);
-    audio.addEventListener('loadstart', handleLoadStart);
-    audio.addEventListener('canplay', handleCanPlay);
-    audio.addEventListener('error', handleError);
-    audio.addEventListener('loadeddata', handleLoadedData);
-    audioRef.current = audio;
+  ]
+}
+
+export function RadioWidget() {
+  const [isCollapsed, setIsCollapsed] = useState(true)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentSong, setCurrentSong] = useState<Song | null>(null)
+  const [volume, setVolume] = useState(50)
+  const [status, setStatus] = useState('Ready')
+  const [playlist, setPlaylist] = useState<Song[]>([])
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [isShuffled, setIsShuffled] = useState(true)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const hasAutoPlayed = useRef(false)
+
+  // Initialize playlist ONCE
+  useEffect(() => {
+    const songs = CONFIG.SONGS.map(song => ({
+      ...song,
+      url: CONFIG.MUSIC_PATH + song.filename
+    }))
+    
+    if (isShuffled) {
+      for (let i = songs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [songs[i], songs[j]] = [songs[j], songs[i]]
+      }
+    }
+    
+    setPlaylist(songs)
+    if (songs.length > 0) {
+      setCurrentSong(songs[0])
+      setCurrentIndex(0)
+    }
+  }, []) // Only run once on mount
+
+  // Handle song changes
+  useEffect(() => {
+    if (!currentSong) return
+
+    // Clean up previous audio
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current.src = ''
+    }
+
+    // Create new audio
+    const audio = new Audio()
+    audio.crossOrigin = "anonymous"
+    audio.preload = "metadata"
+    audio.volume = volume / 100
+    audio.src = currentSong.url
+
+    // Add event listeners
+    audio.addEventListener('ended', () => nextSong())
+    audio.addEventListener('loadstart', () => setStatus('Loading...'))
+    audio.addEventListener('canplay', () => setStatus('Ready'))
+    audio.addEventListener('error', () => {
+      setStatus('Error')
+      setTimeout(() => nextSong(), 2000)
+    })
+    audio.addEventListener('timeupdate', () => {
+      setCurrentTime(audio.currentTime)
+    })
+    audio.addEventListener('loadedmetadata', () => {
+      setDuration(audio.duration)
+    })
+
+    audioRef.current = audio
+
+    // Autoplay only once on first load
+    if (!hasAutoPlayed.current) {
+      hasAutoPlayed.current = true
+      setTimeout(() => {
+        attemptAutoplay()
+      }, 2000)
+    }
+
     return () => {
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-        audioRef.current.load();
+        audioRef.current.pause()
+        audioRef.current.src = ''
       }
-    };
-  }, [currentSong, volume, handleSongEnd, handleLoadStart, handleCanPlay, handleError, handleLoadedData]);
+    }
+  }, [currentSong])
 
   // Update volume
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = volume / 100;
+      audioRef.current.volume = volume / 100
     }
-  }, [volume]);
+  }, [volume])
 
-  // Play/pause logic
-  const play = useCallback(async () => {
-    if (!audioRef.current) return;
+  const attemptAutoplay = async () => {
+    if (!audioRef.current) return
+
     try {
-      if (audioRef.current.readyState < 2) {
-        setStatus('Loading...');
-        audioRef.current.addEventListener('canplay', async () => {
-          try {
-            await audioRef.current!.play();
-            setIsPlaying(true);
-            setStatus('Playing');
-          } catch {
-            setStatus('Play failed');
-          }
-        }, { once: true });
-        return;
-      }
-      await audioRef.current.play();
-      setIsPlaying(true);
-      setStatus('Playing');
-    } catch {
-      setStatus('Click ▶ to start');
-      setIsPlaying(false);
+      await audioRef.current.play()
+      setIsPlaying(true)
+      setStatus('Playing')
+    } catch (error) {
+      setStatus('Click ▶ to start')
+      setIsPlaying(false)
     }
-  }, [setIsPlaying, setStatus]);
-
-  const pause = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      setStatus('Paused');
-    }
-  }, [setIsPlaying, setStatus]);
-
-  // Autoplay on song change
-  useEffect(() => {
-    if (currentSong && !isPlaying) {
-      const timer = setTimeout(() => {
-        play();
-      }, AUTOPLAY_DELAY_MS);
-      return () => clearTimeout(timer);
-    }
-  }, [currentSong, isPlaying, play]);
-
-  return { audioRef, play, pause, currentSong };
-}
-
-function SongInfo({ song }: { song: Song | null }) {
-  return (
-    <div className="song-info">
-      <div className="song-title">{song?.title || 'Ready to play'}</div>
-      <div className="song-artist">{song?.artist || 'Click ▶ to start'}</div>
-    </div>
-  );
-}
-
-function VolumeControl({ volume, onChange }: { volume: number; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
-  return (
-    <div className="volume-container">
-      <span className="volume-icon">♪</span>
-      <input
-        type="range"
-        className="volume-slider"
-        min="0"
-        max="100"
-        value={volume}
-        onChange={onChange}
-      />
-      <span className="volume-label">{volume}%</span>
-    </div>
-  );
-}
-
-export function RadioWidget() {
-  const [isCollapsed, setIsCollapsed] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(50);
-  const [status, setStatus] = useState<AudioStatus>('Ready');
-  const [playlist, setPlaylist] = useState<Song[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isShuffled, setIsShuffled] = useState(true);
-  const [failedIndexes, setFailedIndexes] = useState<Set<number>>(new Set());
-  const [allFailed, setAllFailed] = useState(false);
-  const [lastError, setLastError] = useState<string | null>(null);
-
-  // Initialize playlist
-  useEffect(() => {
-    let songs = SONGS.map(song => ({ ...song, url: MUSIC_PATH + song.filename }));
-    songs.forEach(async (song, index) => {
-      try {
-        const response = await fetch(song.url, { method: 'HEAD' });
-        const status = response.ok ? '✅ Found' : '❌ Not found';
-        console.log(`File ${index + 1}: "${song.filename}" - ${status} (${response.status})`);
-        if (!response.ok) {
-          console.warn(`Problem with file: ${song.title} - ${song.filename}`);
-          console.warn(`Full URL: ${song.url}`);
-        }
-      } catch (error) {
-        console.error(`File ${index + 1}: "${song.filename}" - ❌ Error:`, error);
-      }
-    });
-    if (isShuffled) {
-      songs = shuffleArray(songs);
-    }
-    setPlaylist(songs);
-    if (songs.length > 0) {
-      setCurrentIndex(0);
-      setStatus(`Loaded ${songs.length} songs`);
-      setFailedIndexes(new Set());
-      setAllFailed(false);
-      setLastError(null);
-    }
-  }, [isShuffled]);
-
-  // Derive currentSong
-  const currentSong = playlist[currentIndex] || null;
-
-  // Helper to check if all songs are failed
-  useEffect(() => {
-    if (playlist.length > 0 && failedIndexes.size >= playlist.length) {
-      setAllFailed(true);
-      setStatus('All songs failed to load');
-    } else {
-      setAllFailed(false);
-    }
-  }, [failedIndexes, playlist.length]);
-
-  // Audio logic
-  const onSongEnd = useCallback(() => {
-    if (playlist.length === 0) return;
-    let nextIdx = currentIndex + 1;
-    let attempts = 0;
-    while (attempts < playlist.length) {
-      if (nextIdx >= playlist.length) nextIdx = 0;
-      if (!failedIndexes.has(nextIdx)) break;
-      nextIdx++;
-      attempts++;
-    }
-    if (attempts >= playlist.length) {
-      setAllFailed(true);
-      setStatus('All songs failed to load');
-      setIsPlaying(false);
-      return;
-    }
-    setCurrentIndex(nextIdx);
-    setIsPlaying(true); // Always try to play next
-  }, [playlist.length, currentIndex, failedIndexes]);
-
-  const onError = useCallback((msg: string) => {
-    setStatus(msg);
-    setIsPlaying(false);
-    setFailedIndexes(prev => {
-      const updated = new Set(prev).add(currentIndex);
-      if (updated.size >= playlist.length) setAllFailed(true);
-      return updated;
-    });
-    setLastError(msg);
-  }, [currentIndex, playlist.length]);
-
-  const { play, pause } = useAudioPlayer(
-    playlist,
-    currentIndex,
-    volume,
-    onSongEnd,
-    onError,
-    isPlaying,
-    setIsPlaying,
-    setStatus
-  );
-
-  // UI event handlers
-  const toggleWidget = useCallback(() => setIsCollapsed(c => !c), []);
-
-  const togglePlay = useCallback(() => {
-    if (!currentSong) {
-      setStatus('No song selected');
-      return;
-    }
-    if (allFailed) {
-      setStatus('All songs failed to load');
-      return;
-    }
-    if (isPlaying) {
-      pause();
-    } else {
-      setIsPlaying(true);
-      play();
-    }
-  }, [currentSong, isPlaying, play, pause, allFailed]);
-
-  const nextSong = useCallback(() => {
-    if (playlist.length === 0) return;
-    let nextIdx = currentIndex + 1;
-    let attempts = 0;
-    while (attempts < playlist.length) {
-      if (nextIdx >= playlist.length) nextIdx = 0;
-      if (!failedIndexes.has(nextIdx)) break;
-      nextIdx++;
-      attempts++;
-    }
-    if (attempts >= playlist.length) {
-      setAllFailed(true);
-      setStatus('All songs failed to load');
-      setIsPlaying(false);
-      return;
-    }
-    setCurrentIndex(nextIdx);
-    setIsPlaying(true);
-    setStatus('Loading...');
-  }, [playlist.length, currentIndex, failedIndexes]);
-
-  const prevSong = useCallback(() => {
-    if (playlist.length === 0) return;
-    let prevIdx = currentIndex - 1;
-    if (prevIdx < 0) prevIdx = playlist.length - 1;
-    let attempts = 0;
-    while (attempts < playlist.length) {
-      if (!failedIndexes.has(prevIdx)) break;
-      prevIdx--;
-      if (prevIdx < 0) prevIdx = playlist.length - 1;
-      attempts++;
-    }
-    if (attempts >= playlist.length) {
-      setAllFailed(true);
-      setStatus('All songs failed to load');
-      setIsPlaying(false);
-      return;
-    }
-    setCurrentIndex(prevIdx);
-    setIsPlaying(true);
-    setStatus('Loading...');
-  }, [playlist.length, currentIndex, failedIndexes]);
-
-  const toggleShuffle = useCallback(() => setIsShuffled(s => !s), []);
-
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setVolume(parseInt(e.target.value));
-  }, []);
-
-  // Autoplay on song change if isPlaying is true
-  useEffect(() => {
-    if (currentSong && isPlaying && !allFailed) {
-      play();
-    }
-  }, [currentSong, isPlaying, play, allFailed]);
-
-  // Guard for empty playlist or all failed
-  if (playlist.length === 0) {
-    return (
-      <div className="radio-widget collapsed" id="radioWidget">
-        <div className="widget-header">
-          <div className="collapsed-controls">
-            <div className="collapsed-song-info">No songs found</div>
-            <button className="collapsed-play-btn" disabled>▶</button>
-          </div>
-          <button className="collapse-btn" onClick={toggleWidget}>+</button>
-        </div>
-        <div className="widget-content">
-          <div className="now-playing">No songs available</div>
-        </div>
-      </div>
-    );
   }
-  if (allFailed) {
-    return (
-      <div className="radio-widget collapsed" id="radioWidget">
-        <div className="widget-header">
-          <div className="collapsed-controls">
-            <div className="collapsed-song-info">All songs failed</div>
-            <button className="collapsed-play-btn" disabled>▶</button>
-          </div>
-          <button className="collapse-btn" onClick={toggleWidget}>+</button>
-        </div>
-        <div className="widget-content">
-          <div className="now-playing">All songs failed to load</div>
-          {lastError && <div className="status error">{lastError}</div>}
-        </div>
-      </div>
-    );
+
+  const toggleWidget = () => {
+    setIsCollapsed(!isCollapsed)
+  }
+
+  const togglePlay = async () => {
+    if (!audioRef.current) return
+
+    try {
+      if (isPlaying) {
+        audioRef.current.pause()
+        setIsPlaying(false)
+        setStatus('Paused')
+      } else {
+        await audioRef.current.play()
+        setIsPlaying(true)
+        setStatus('Playing')
+      }
+    } catch (error) {
+      setStatus('Play error')
+      setIsPlaying(false)
+    }
+  }
+
+  const nextSong = () => {
+    if (playlist.length === 0) return
+    const nextIndex = (currentIndex + 1) % playlist.length
+    setCurrentIndex(nextIndex)
+    setCurrentSong(playlist[nextIndex])
+    
+    // Continue playing if we were playing
+    if (isPlaying) {
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.play().then(() => {
+            setIsPlaying(true)
+            setStatus('Playing')
+          }).catch(() => {
+            setIsPlaying(false)
+            setStatus('Error')
+          })
+        }
+      }, 500)
+    }
+  }
+
+  const previousSong = () => {
+    if (playlist.length === 0) return
+    const prevIndex = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1
+    setCurrentIndex(prevIndex)
+    setCurrentSong(playlist[prevIndex])
+    
+    // Continue playing if we were playing
+    if (isPlaying) {
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.play().then(() => {
+            setIsPlaying(true)
+            setStatus('Playing')
+          }).catch(() => {
+            setIsPlaying(false)
+            setStatus('Error')
+          })
+        }
+      }, 500)
+    }
+  }
+
+  const toggleShuffle = () => {
+    setIsShuffled(!isShuffled)
+    // Just toggle the state, don't recreate playlist
+  }
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseInt(e.target.value)
+    setVolume(newVolume)
+  }
+
+  const truncateText = (text: string, maxLength: number = 40) => {
+    if (text.length <= maxLength) return text
+    return text.substring(0, maxLength - 3) + '...'
+  }
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return '0:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current || !duration) return
+    
+    const progressBar = e.currentTarget
+    const rect = progressBar.getBoundingClientRect()
+    const clickX = e.clientX - rect.left
+    const clickProgress = clickX / rect.width
+    const newTime = clickProgress * duration
+    
+    audioRef.current.currentTime = newTime
+    setCurrentTime(newTime)
   }
 
   return (
@@ -433,8 +263,8 @@ export function RadioWidget() {
         
         .radio-widget.expanded {
           width: 320px;
-          min-height: 120px;
-          max-height: 120px;
+          min-height: 140px;
+          max-height: 140px;
         }
         
         .widget-header {
@@ -458,7 +288,7 @@ export function RadioWidget() {
           align-items: center;
           gap: 10px;
           flex: 1;
-          min-width: 0; /* Allow text to shrink */
+          min-width: 0;
         }
         
         .collapsed-song-info {
@@ -468,7 +298,7 @@ export function RadioWidget() {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          min-width: 0; /* Allow text to shrink */
+          min-width: 0;
           margin-right: 8px;
         }
         
@@ -485,7 +315,7 @@ export function RadioWidget() {
           display: flex;
           align-items: center;
           justify-content: center;
-          flex-shrink: 0; /* Don't shrink the button */
+          flex-shrink: 0;
           font-weight: 500;
         }
         
@@ -507,10 +337,6 @@ export function RadioWidget() {
         }
         
         .radio-widget.expanded .collapsed-controls {
-          display: none;
-        }
-        
-        .widget-title {
           display: none;
         }
         
@@ -544,10 +370,6 @@ export function RadioWidget() {
         }
         
         .radio-widget.collapsed .widget-content {
-          display: none;
-        }
-        
-        .radio-widget.collapsed .widget-title {
           display: none;
         }
         
@@ -611,6 +433,37 @@ export function RadioWidget() {
           min-width: 50px;
         }
         
+        .progress-container {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 10px;
+        }
+
+        .progress-bar {
+          flex: 1;
+          height: 6px;
+          background: rgba(71, 85, 105, 0.4);
+          border-radius: 3px;
+          cursor: pointer;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .progress-fill {
+          height: 100%;
+          background: #14b8a6;
+          border-radius: 3px;
+          transition: width 0.1s ease;
+        }
+
+        .time-display {
+          color: #64748b;
+          font-size: 10px;
+          min-width: 35px;
+          text-align: center;
+        }
+        
         .volume-container {
           display: flex;
           align-items: center;
@@ -663,26 +516,21 @@ export function RadioWidget() {
         .status.error {
           color: #dc2626;
         }
-        
-        .status.loading {
-          color: #eab308;
-        }
       `}</style>
       <div className={`radio-widget ${isCollapsed ? 'collapsed' : 'expanded'}`} id="radioWidget">
         <div className="widget-header">
-          {/* Collapsed view - shows in header */}
           <div className="collapsed-controls">
             <div className="collapsed-song-info">
-              {currentSong ? truncateText(`${currentSong.artist} - ${currentSong.title}`, COLLAPSED_SONG_INFO_LENGTH) : 'Loading...'}
+              {currentSong ? truncateText(`${currentSong.artist} - ${currentSong.title}`, 35) : 'Loading...'}
             </div>
             <button className="collapsed-play-btn" onClick={togglePlay}>
               {isPlaying ? '⏸' : '▶'}
             </button>
           </div>
-          {/* Expanded view - shows when expanded */}
+          
           <div className="header-controls">
             <div className="controls">
-              <button className="control-btn" onClick={prevSong}>
+              <button className="control-btn" onClick={previousSong}>
                 ⏮ Prev
               </button>
               <button className="control-btn play-btn" onClick={togglePlay}>
@@ -691,29 +539,61 @@ export function RadioWidget() {
               <button className="control-btn" onClick={nextSong}>
                 ⏭ Next
               </button>
-              <button
-                className={`control-btn ${isShuffled ? 'active' : ''}`}
+              <button 
+                className={`control-btn ${isShuffled ? 'active' : ''}`} 
                 onClick={toggleShuffle}
               >
                 🔀 Shuffle
               </button>
             </div>
           </div>
+          
           <button className="collapse-btn" onClick={toggleWidget}>
             {isCollapsed ? '+' : '−'}
           </button>
         </div>
+        
         <div className="widget-content">
           <div className="now-playing">
-            <SongInfo song={currentSong} />
+            <div className="song-info">
+              <div className="song-title">
+                {currentSong?.title || 'Ready to play'}
+              </div>
+              <div className="song-artist">
+                {currentSong?.artist || 'Click ▶ to start'}
+              </div>
+            </div>
           </div>
-          <VolumeControl volume={volume} onChange={handleVolumeChange} />
-          <div className={`status ${status === 'Playing' ? 'success' : status === 'Error loading' ? 'error' : ''}`}>
+
+          <div className="progress-container">
+            <span className="time-display">{formatTime(currentTime)}</span>
+            <div className="progress-bar" onClick={handleProgressClick}>
+              <div 
+                className="progress-fill" 
+                style={{ width: duration ? `${(currentTime / duration) * 100}%` : '0%' }}
+              ></div>
+            </div>
+            <span className="time-display">{formatTime(duration)}</span>
+          </div>
+          
+          <div className="volume-container">
+            <span className="volume-icon">♪</span>
+            <input 
+              type="range" 
+              className="volume-slider"
+              min="0" 
+              max="100" 
+              value={volume}
+              onChange={handleVolumeChange}
+            />
+            <span className="volume-label">{volume}%</span>
+          </div>
+          
+          <div className={`status ${status === 'Playing' ? 'success' : status === 'Error' ? 'error' : ''}`}>
             {status}
           </div>
-          {lastError && <div className="status error">{lastError}</div>}
         </div>
       </div>
     </>
-  );
+  )
 }
