@@ -297,10 +297,11 @@ export function RadioWidget() {
           gap: 10px;
         }
         
-        .radio-widget.collapsed .widget-header {
-          border-bottom: none;
-          padding: 4px 10px;
-        }
+       .radio-widget.expanded {
+  width: 380px;
+  min-height: 150px;
+  max-height: 150px;
+}
         
         .collapsed-controls {
           display: flex;
