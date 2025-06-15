@@ -31,17 +31,17 @@ const CONFIG = {
 }
 
 export function RadioWidget() {
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(true)  // Start collapsed
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentSong, setCurrentSong] = useState<Song | null>(null)
-  const [volume, setVolume] = useState(70)
+  const [volume, setVolume] = useState(50)  // Default 50%
   const [status, setStatus] = useState('Ready')
   const [playlist, setPlaylist] = useState<Song[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isShuffled, setIsShuffled] = useState(true)
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null)
 
-  // Initialize playlist
+  // Initialize playlist and autoplay
   useEffect(() => {
     const songs = CONFIG.SONGS.map(song => ({
       ...song,
@@ -71,8 +71,44 @@ export function RadioWidget() {
     if (songs.length > 0) {
       setCurrentSong(songs[0])
       setStatus(`Loaded ${songs.length} songs`)
+      
+      // Autoplay after a short delay
+      setTimeout(() => {
+        autoPlay(songs[0])
+      }, 1000)
     }
   }, [isShuffled])
+
+  // Autoplay function
+  const autoPlay = async (song: Song) => {
+    if (!song) return
+    
+    try {
+      const audio = new Audio()
+      audio.crossOrigin = "anonymous"
+      audio.preload = "metadata"
+      audio.volume = volume / 100
+      audio.src = song.url
+      
+      audio.addEventListener('ended', () => nextSong())
+      audio.addEventListener('loadstart', () => setStatus('Loading...'))
+      audio.addEventListener('canplay', () => setStatus('Ready'))
+      audio.addEventListener('error', (e) => {
+        console.error('Auto-play error:', e)
+        setStatus('Error loading')
+      })
+      
+      setCurrentAudio(audio)
+      
+      // Try to autoplay
+      await audio.play()
+      setIsPlaying(true)
+      setStatus('Playing')
+    } catch (error) {
+      console.log('Autoplay blocked - user interaction required')
+      setStatus('Click play to start')
+    }
+  }
 
   // Update current audio when song changes
   useEffect(() => {
@@ -216,14 +252,14 @@ export function RadioWidget() {
         }
         
         .radio-widget.collapsed {
-          width: 45px !important;
-          height: 45px !important;
+          width: 250px !important;
+          height: 35px !important;
         }
         
         .radio-widget.expanded {
-          width: 260px;
-          min-height: 70px;
-          max-height: 70px;
+          width: 320px;
+          min-height: 120px;
+          max-height: 120px;
         }
         
         .widget-header {
@@ -236,11 +272,59 @@ export function RadioWidget() {
           border-bottom: 1px solid rgba(71, 85, 105, 0.3);
         }
         
+        .radio-widget.collapsed .widget-header {
+          border-bottom: none;
+          padding: 8px;
+        }
+        
+        .collapsed-controls {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1;
+        }
+        
+        .collapsed-song-info {
+          flex: 1;
+          color: #f1f5f9;
+          font-size: 10px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        
+        .collapsed-play-btn {
+          background: #1e293b;
+          border: 1px solid rgba(71, 85, 105, 0.4);
+          color: #e2e8f0;
+          padding: 4px 8px;
+          border-radius: 3px;
+          cursor: pointer;
+          font-size: 9px;
+          min-width: 35px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        
+        .collapsed-play-btn:hover {
+          background: #334155;
+        }
+        
         .header-controls {
           display: flex;
           align-items: center;
           gap: 4px;
           flex: 1;
+        }
+        
+        .radio-widget.collapsed .header-controls {
+          display: none;
+        }
+        
+        .radio-widget.expanded .collapsed-controls {
+          display: none;
         }
         
         .widget-title {
@@ -264,7 +348,7 @@ export function RadioWidget() {
         }
         
         .widget-content {
-          padding: 6px 8px;
+          padding: 8px;
           display: block;
         }
         
@@ -272,67 +356,51 @@ export function RadioWidget() {
           display: none;
         }
         
-        .radio-widget.collapsed .header-controls {
-          display: none;
-        }
-        
-        .radio-widget.collapsed .widget-header {
-          padding: 12px;
-          justify-content: center;
-          border: none;
-          cursor: pointer;
-        }
-        
         .radio-widget.collapsed .widget-title {
           display: none;
         }
         
         .now-playing {
-          margin-bottom: 0;
+          margin-bottom: 10px;
         }
         
         .song-info {
           color: #f1f5f9;
-          font-size: 10px;
-          line-height: 1.2;
+          font-size: 12px;
+          line-height: 1.3;
         }
         
         .song-title {
           font-weight: 500;
-          margin-bottom: 1px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          margin-bottom: 3px;
         }
         
         .song-artist {
           color: #94a3b8;
-          font-size: 9px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
+          font-size: 11px;
         }
         
         .controls {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
+          margin-bottom: 10px;
         }
         
         .control-btn {
           background: #1e293b;
           border: 1px solid rgba(71, 85, 105, 0.4);
           color: #e2e8f0;
-          padding: 4px 8px;
-          border-radius: 3px;
+          padding: 6px 12px;
+          border-radius: 4px;
           cursor: pointer;
-          font-size: 9px;
+          font-size: 11px;
           transition: all 0.2s;
           display: flex;
           align-items: center;
           justify-content: center;
-          min-width: 28px;
-          height: 20px;
+          min-width: 40px;
+          height: 28px;
           font-weight: 400;
         }
         
@@ -349,44 +417,52 @@ export function RadioWidget() {
         }
         
         .play-btn {
-          min-width: 35px;
+          min-width: 50px;
         }
         
         .volume-container {
           display: flex;
           align-items: center;
-          gap: 4px;
-          margin-left: 6px;
+          gap: 8px;
         }
         
         .volume-icon {
           color: #94a3b8;
-          font-size: 10px;
-          width: 12px;
+          font-size: 12px;
+          width: 14px;
         }
         
         .volume-slider {
-          width: 40px;
-          height: 2px;
+          width: 80px;
+          height: 4px;
           background: rgba(71, 85, 105, 0.4);
-          border-radius: 1px;
+          border-radius: 2px;
           outline: none;
           cursor: pointer;
           appearance: none;
         }
         
+        .volume-slider::-webkit-slider-thumb {
+          appearance: none;
+          width: 14px;
+          height: 14px;
+          background: #64748b;
+          border-radius: 50%;
+          cursor: pointer;
+        }
+        
         .volume-label {
           color: #64748b;
-          font-size: 8px;
-          min-width: 20px;
+          font-size: 10px;
+          min-width: 28px;
           text-align: right;
         }
         
         .status {
           color: #64748b;
-          font-size: 8px;
-          text-align: right;
-          margin-top: 2px;
+          font-size: 9px;
+          text-align: center;
+          margin-top: 5px;
         }
         
         .status.success {
@@ -403,6 +479,17 @@ export function RadioWidget() {
       `}</style>
       <div className={`radio-widget ${isCollapsed ? 'collapsed' : 'expanded'}`} id="radioWidget">
         <div className="widget-header">
+          {/* Collapsed view - shows in header */}
+          <div className="collapsed-controls">
+            <div className="collapsed-song-info">
+              {currentSong ? `${currentSong.artist} - ${currentSong.title}` : 'Loading...'}
+            </div>
+            <button className="collapsed-play-btn" onClick={togglePlay}>
+              {isPlaying ? 'Pause' : 'Play'}
+            </button>
+          </div>
+          
+          {/* Expanded view - shows when expanded */}
           <div className="header-controls">
             <div className="controls">
               <button className="control-btn play-btn" onClick={togglePlay}>
@@ -418,23 +505,13 @@ export function RadioWidget() {
                 Shuffle
               </button>
             </div>
-            <div className="volume-container">
-              <span className="volume-icon">♪</span>
-              <input 
-                type="range" 
-                className="volume-slider"
-                min="0" 
-                max="100" 
-                value={volume}
-                onChange={handleVolumeChange}
-              />
-              <span className="volume-label">{volume}%</span>
-            </div>
           </div>
+          
           <button className="collapse-btn" onClick={toggleWidget}>
             {isCollapsed ? '+' : '−'}
           </button>
         </div>
+        
         <div className="widget-content">
           <div className="now-playing">
             <div className="song-info">
@@ -445,9 +522,23 @@ export function RadioWidget() {
                 {currentSong?.artist || 'Click play to start'}
               </div>
             </div>
-            <div className={`status ${status === 'Playing' ? 'success' : status === 'Error loading' ? 'error' : ''}`}>
-              {status}
-            </div>
+          </div>
+          
+          <div className="volume-container">
+            <span className="volume-icon">♪</span>
+            <input 
+              type="range" 
+              className="volume-slider"
+              min="0" 
+              max="100" 
+              value={volume}
+              onChange={handleVolumeChange}
+            />
+            <span className="volume-label">{volume}%</span>
+          </div>
+          
+          <div className={`status ${status === 'Playing' ? 'success' : status === 'Error loading' ? 'error' : ''}`}>
+            {status}
           </div>
         </div>
       </div>
