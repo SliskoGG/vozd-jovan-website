@@ -9,27 +9,6 @@ interface Song {
   url: string
 }
 
-const CONFIG = {
-  MUSIC_PATH: '/music/',  // Updated path to music folder
-  SONGS: [
-    {
-      title: 'Kinematograf naseg detinjstva',
-      artist: 'Atomsko skloniste',
-      filename: 'Atomsko_skloniste-Kinematograf_naseg_detinjstva.mp3'
-    },
-    {
-      title: 'Nek vam je sa srecom',
-      artist: 'Atomsko skloniste', 
-      filename: 'Atomsko_skloniste-Nek_vam_je_sa_srecom.mp3'
-    },
-    {
-      title: 'Ne cvikaj generacijo',
-      artist: 'Atomsko skloniste',
-      filename: 'Atomsko_skloniste-Ne_cvikaj_generacijo.mp3'
-    }
-  ]
-}
-
 export function RadioWidget() {
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -45,39 +24,57 @@ export function RadioWidget() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasAutoPlayed = useRef(false)
 
-  // Initialize playlist ONCE
+  // Initialize playlist from JSON file
   useEffect(() => {
-    const songs = CONFIG.SONGS.map(song => ({
-      ...song,
-      url: CONFIG.MUSIC_PATH + song.filename
-    }))
-    
-    // Test file accessibility
-    songs.forEach(async (song, index) => {
+    const loadSongs = async () => {
       try {
-        const response = await fetch(song.url, { method: 'HEAD' })
-        console.log(`File ${index + 1}: "${song.filename}" - ${response.ok ? 'Found' : 'Not found'} (${response.status})`)
+        setStatus('Loading songs...')
+        const response = await fetch('/songs.json')
         if (!response.ok) {
-          console.warn(`Full URL: ${song.url}`)
+          throw new Error(`Failed to load songs.json: ${response.status}`)
         }
+        
+        const songs: Song[] = await response.json()
+        console.log(`Loaded ${songs.length} songs from songs.json`)
+        
+        // Test file accessibility
+        for (const song of songs) {
+          try {
+            const fileResponse = await fetch(song.url, { method: 'HEAD' })
+            console.log(`"${song.title}" - ${fileResponse.ok ? 'Found' : 'Not found'} (${fileResponse.status})`)
+            if (!fileResponse.ok) {
+              console.warn(`File not accessible: ${song.url}`)
+            }
+          } catch (error) {
+            console.error(`Error checking "${song.title}":`, error)
+          }
+        }
+        
+        let finalPlaylist = songs
+        if (isShuffled) {
+          finalPlaylist = [...songs]
+          for (let i = finalPlaylist.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [finalPlaylist[i], finalPlaylist[j]] = [finalPlaylist[j], finalPlaylist[i]]
+          }
+        }
+        
+        setPlaylist(finalPlaylist)
+        if (finalPlaylist.length > 0) {
+          setCurrentSong(finalPlaylist[0])
+          setCurrentIndex(0)
+          setStatus(`Loaded ${finalPlaylist.length} songs`)
+        } else {
+          setStatus('No songs found')
+        }
+        
       } catch (error) {
-        console.error(`File ${index + 1}: "${song.filename}" - Error:`, error)
-      }
-    })
-    
-    if (isShuffled) {
-      for (let i = songs.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [songs[i], songs[j]] = [songs[j], songs[i]]
+        console.error('Failed to load songs:', error)
+        setStatus('Failed to load songs')
       }
     }
     
-    setPlaylist(songs)
-    if (songs.length > 0) {
-      setCurrentSong(songs[0])
-      setCurrentIndex(0)
-      setStatus(`Loaded ${songs.length} songs`)
-    }
+    loadSongs()
   }, []) // Only run once on mount
 
   // Handle song changes
@@ -111,7 +108,13 @@ export function RadioWidget() {
       setCurrentTime(audio.currentTime)
     })
     audio.addEventListener('loadedmetadata', () => {
-      setDuration(audio.duration)
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        setDuration(audio.duration)
+        console.log(`Duration for "${currentSong.title}": ${Math.floor(audio.duration / 60)}:${Math.floor(audio.duration % 60).toString().padStart(2, '0')}`)
+      } else {
+        console.warn(`Invalid duration for "${currentSong.title}":`, audio.duration)
+        setDuration(0)
+      }
     })
 
     audioRef.current = audio
