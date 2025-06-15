@@ -281,7 +281,7 @@ export function RadioWidget() {
         }
         
         .radio-widget.expanded {
-          width: 320px;
+          width: 350px;
           min-height: 140px;
           max-height: 140px;
         }
@@ -496,7 +496,7 @@ export function RadioWidget() {
         }
         
         .volume-slider {
-          width: 80px;
+          width: 100px;
           height: 4px;
           background: rgba(71, 85, 105, 0.4);
           border-radius: 2px;
@@ -567,9 +567,13 @@ export function RadioWidget() {
           
           .control-btn {
             font-size: 10px !important;
-            padding: 4px 8px !important;
-            min-width: 35px !important;
+            padding: 4px 6px !important;
+            min-width: 30px !important;
             height: 24px !important;
+          }
+          
+          .volume-slider {
+            width: 60px !important;
           }
         }
       `}</style>
@@ -599,7 +603,7 @@ export function RadioWidget() {
                 className={`control-btn ${isShuffled ? 'active' : ''}`} 
                 onClick={toggleShuffle}
               >
-                🔀 Shuffle
+                Shuffle
               </button>
             </div>
           </div>
