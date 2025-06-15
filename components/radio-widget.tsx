@@ -50,15 +50,20 @@ export function RadioWidget() {
       url: CONFIG.MUSIC_PATH + song.filename
     }))
     
-    // Test if files are accessible
-    songs.forEach(song => {
-      fetch(song.url, { method: 'HEAD' })
-        .then(response => {
-          console.log(`File ${song.filename}:`, response.ok ? 'Found' : 'Not found', response.status)
-        })
-        .catch(error => {
-          console.error(`File ${song.filename} error:`, error)
-        })
+    // Test if files are accessible with more detailed logging
+    songs.forEach(async (song, index) => {
+      try {
+        const response = await fetch(song.url, { method: 'HEAD' })
+        const status = response.ok ? '✅ Found' : '❌ Not found'
+        console.log(`File ${index + 1}: "${song.filename}" - ${status} (${response.status})`)
+        
+        if (!response.ok) {
+          console.warn(`Problem with file: ${song.title} - ${song.filename}`)
+          console.warn(`Full URL: ${song.url}`)
+        }
+      } catch (error) {
+        console.error(`File ${index + 1}: "${song.filename}" - ❌ Error:`, error)
+      }
     })
     
     if (isShuffled) {
@@ -122,14 +127,25 @@ export function RadioWidget() {
   // Autoplay after initial setup
   useEffect(() => {
     if (currentSong && audioRef.current && !isPlaying) {
-      // Autoplay after a short delay
+      // Autoplay after a short delay, but only for the first song
       const timer = setTimeout(() => {
         attemptAutoplay()
-      }, 1000)
+      }, 2000) // Increased delay for better browser compatibility
       
       return () => clearTimeout(timer)
     }
   }, [currentSong])
+
+  // Additional autoplay trigger for initial load
+  useEffect(() => {
+    if (playlist.length > 0 && currentSong && !isPlaying) {
+      const timer = setTimeout(() => {
+        attemptAutoplay()
+      }, 3000) // Extra autoplay attempt
+      
+      return () => clearTimeout(timer)
+    }
+  }, [playlist])
 
   // Update volume when it changes
   useEffect(() => {
@@ -152,9 +168,23 @@ export function RadioWidget() {
   }
 
   const handleError = (e: Event) => {
-    console.error('Audio error:', e)
-    setStatus('Error loading')
+    const error = e.target as HTMLAudioElement
+    console.error('Audio error:', {
+      error: error.error,
+      src: error.src,
+      networkState: error.networkState,
+      readyState: error.readyState,
+      currentSong: currentSong?.title
+    })
+    
+    setStatus(`Error: ${currentSong?.title || 'Unknown'}`)
     setIsPlaying(false)
+    
+    // Try next song if current one fails
+    setTimeout(() => {
+      console.log('Trying next song due to error...')
+      nextSong()
+    }, 2000)
   }
 
   const handleLoadedData = () => {
@@ -165,13 +195,21 @@ export function RadioWidget() {
     if (!audioRef.current || !currentSong) return
 
     try {
+      // Ensure audio is loaded
+      if (audioRef.current.readyState < 2) {
+        console.log('Waiting for audio to load before autoplay...')
+        audioRef.current.addEventListener('canplay', attemptAutoplay, { once: true })
+        return
+      }
+
+      console.log('Attempting autoplay for:', currentSong.title)
       await audioRef.current.play()
       setIsPlaying(true)
       setStatus('Playing')
       console.log('Autoplay successful')
     } catch (error) {
-      console.log('Autoplay blocked - user interaction required')
-      setStatus('Click play to start')
+      console.log('Autoplay blocked - user interaction required:', error)
+      setStatus('Click ▶ to start')
       setIsPlaying(false)
     }
   }
@@ -186,20 +224,52 @@ export function RadioWidget() {
       return
     }
 
+    console.log('Toggle play for:', currentSong.title, 'Current state:', isPlaying)
+
     try {
       if (isPlaying) {
         audioRef.current.pause()
         setIsPlaying(false)
         setStatus('Paused')
+        console.log('Paused:', currentSong.title)
       } else {
+        // Check if audio is loaded
+        if (audioRef.current.readyState < 2) {
+          setStatus('Loading...')
+          console.log('Audio not ready, waiting...')
+          audioRef.current.addEventListener('canplay', async () => {
+            try {
+              await audioRef.current!.play()
+              setIsPlaying(true)
+              setStatus('Playing')
+              console.log('Play successful after loading:', currentSong.title)
+            } catch (err) {
+              console.error('Play failed after loading:', err)
+              setStatus('Play failed')
+            }
+          }, { once: true })
+          return
+        }
+
+        console.log('Playing:', currentSong.title, 'Ready state:', audioRef.current.readyState)
         await audioRef.current.play()
         setIsPlaying(true)
         setStatus('Playing')
+        console.log('Play successful:', currentSong.title)
       }
     } catch (error) {
-      console.error('Play error:', error)
-      setStatus('Play error')
+      console.error('Play error for', currentSong.title, ':', error)
+      setStatus(`Failed: ${currentSong.title}`)
       setIsPlaying(false)
+      
+      // Try to reload the problematic song
+      setTimeout(() => {
+        console.log('Reloading audio element for:', currentSong.title)
+        if (audioRef.current && currentSong) {
+          audioRef.current.src = currentSong.url
+          audioRef.current.load()
+        }
+      }, 1000)
     }
   }
 
@@ -222,6 +292,12 @@ export function RadioWidget() {
     // Volume will be applied in useEffect
   }
 
+  // Helper function to truncate text
+  const truncateText = (text: string, maxLength: number = 40) => {
+    if (text.length <= maxLength) return text
+    return text.substring(0, maxLength - 3) + '...'
+  }
+
   return (
     <>
       <style jsx>{`
@@ -241,8 +317,8 @@ export function RadioWidget() {
         }
         
         .radio-widget.collapsed {
-          width: 250px !important;
-          height: 35px !important;
+          width: 280px !important;
+          height: 40px !important;
         }
         
         .radio-widget.expanded {
@@ -253,52 +329,60 @@ export function RadioWidget() {
         
         .widget-header {
           background: rgba(30, 41, 59, 0.8);
-          padding: 6px 8px;
+          padding: 6px 10px;
           display: flex;
           justify-content: space-between;
           align-items: center;
           cursor: auto;
           border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+          gap: 10px;
         }
         
         .radio-widget.collapsed .widget-header {
           border-bottom: none;
-          padding: 8px;
+          padding: 6px 10px;
         }
         
         .collapsed-controls {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           flex: 1;
+          min-width: 0; /* Allow text to shrink */
         }
         
         .collapsed-song-info {
           flex: 1;
           color: #f1f5f9;
-          font-size: 10px;
+          font-size: 11px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          min-width: 0; /* Allow text to shrink */
+          margin-right: 8px;
         }
         
         .collapsed-play-btn {
-          background: #1e293b;
-          border: 1px solid rgba(71, 85, 105, 0.4);
-          color: #e2e8f0;
-          padding: 4px 8px;
-          border-radius: 3px;
+          background: #334155;
+          border: 1px solid rgba(148, 163, 184, 0.6);
+          color: #f1f5f9;
+          padding: 6px 10px;
+          border-radius: 4px;
           cursor: pointer;
-          font-size: 9px;
-          min-width: 35px;
-          height: 20px;
+          font-size: 12px;
+          min-width: 40px;
+          height: 28px;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0; /* Don't shrink the button */
+          font-weight: 500;
         }
         
         .collapsed-play-btn:hover {
-          background: #334155;
+          background: #475569;
+          border-color: rgba(148, 163, 184, 0.8);
+          color: #ffffff;
         }
         
         .header-controls {
@@ -321,19 +405,27 @@ export function RadioWidget() {
         }
         
         .collapse-btn {
-          background: none;
-          border: none;
-          color: #cbd5e1;
+          background: #334155;
+          border: 1px solid rgba(148, 163, 184, 0.6);
+          color: #f1f5f9;
           cursor: pointer;
-          font-size: 14px;
-          padding: 4px;
-          border-radius: 3px;
+          font-size: 16px;
+          padding: 6px;
+          border-radius: 4px;
           transition: all 0.2s;
-          width: 20px;
-          height: 20px;
+          width: 32px;
+          height: 28px;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
+          font-weight: bold;
+        }
+        
+        .collapse-btn:hover {
+          background: #475569;
+          border-color: rgba(148, 163, 184, 0.8);
+          color: #ffffff;
         }
         
         .widget-content {
@@ -471,10 +563,10 @@ export function RadioWidget() {
           {/* Collapsed view - shows in header */}
           <div className="collapsed-controls">
             <div className="collapsed-song-info">
-              {currentSong ? `${currentSong.artist} - ${currentSong.title}` : 'Loading...'}
+              {currentSong ? truncateText(`${currentSong.artist} - ${currentSong.title}`, 35) : 'Loading...'}
             </div>
             <button className="collapsed-play-btn" onClick={togglePlay}>
-              {isPlaying ? 'Pause' : 'Play'}
+              {isPlaying ? '⏸' : '▶'}
             </button>
           </div>
           
@@ -482,16 +574,16 @@ export function RadioWidget() {
           <div className="header-controls">
             <div className="controls">
               <button className="control-btn play-btn" onClick={togglePlay}>
-                {isPlaying ? 'Pause' : 'Play'}
+                {isPlaying ? '⏸ Pause' : '▶ Play'}
               </button>
               <button className="control-btn" onClick={nextSong}>
-                Next
+                ⏭ Next
               </button>
               <button 
                 className={`control-btn ${isShuffled ? 'active' : ''}`} 
                 onClick={toggleShuffle}
               >
-                Shuffle
+                🔀 Shuffle
               </button>
             </div>
           </div>
@@ -508,7 +600,7 @@ export function RadioWidget() {
                 {currentSong?.title || 'Ready to play'}
               </div>
               <div className="song-artist">
-                {currentSong?.artist || 'Click play to start'}
+                {currentSong?.artist || 'Click ▶ to start'}
               </div>
             </div>
           </div>
