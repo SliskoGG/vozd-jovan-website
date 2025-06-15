@@ -10,7 +10,7 @@ interface Song {
 }
 
 const CONFIG = {
-  MUSIC_PATH: '/',
+  MUSIC_PATH: '/music/',  // Updated path to music folder
   SONGS: [
     {
       title: 'Kinematograf naseg detinjstva',
@@ -52,6 +52,19 @@ export function RadioWidget() {
       url: CONFIG.MUSIC_PATH + song.filename
     }))
     
+    // Test file accessibility
+    songs.forEach(async (song, index) => {
+      try {
+        const response = await fetch(song.url, { method: 'HEAD' })
+        console.log(`File ${index + 1}: "${song.filename}" - ${response.ok ? 'Found' : 'Not found'} (${response.status})`)
+        if (!response.ok) {
+          console.warn(`Full URL: ${song.url}`)
+        }
+      } catch (error) {
+        console.error(`File ${index + 1}: "${song.filename}" - Error:`, error)
+      }
+    })
+    
     if (isShuffled) {
       for (let i = songs.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -63,6 +76,7 @@ export function RadioWidget() {
     if (songs.length > 0) {
       setCurrentSong(songs[0])
       setCurrentIndex(0)
+      setStatus(`Loaded ${songs.length} songs`)
     }
   }, []) // Only run once on mount
 
@@ -87,9 +101,11 @@ export function RadioWidget() {
     audio.addEventListener('ended', () => nextSong())
     audio.addEventListener('loadstart', () => setStatus('Loading...'))
     audio.addEventListener('canplay', () => setStatus('Ready'))
-    audio.addEventListener('error', () => {
-      setStatus('Error')
-      setTimeout(() => nextSong(), 2000)
+    audio.addEventListener('error', (e) => {
+      console.error('Audio error for:', currentSong.title, e)
+      setStatus(`File not found: ${currentSong.title}`)
+      setIsPlaying(false)
+      // Don't auto-advance on error, let user manually skip
     })
     audio.addEventListener('timeupdate', () => {
       setCurrentTime(audio.currentTime)
@@ -243,22 +259,22 @@ export function RadioWidget() {
       <style jsx>{`
         .radio-widget {
           position: fixed !important;
-          top: 15px !important;
-          left: 15px !important;
-          z-index: 9999 !important;
+          top: 20px !important;
+          left: 20px !important;
+          z-index: 10000 !important;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: rgba(15, 23, 42, 0.95);
-          backdrop-filter: blur(10px);
-          border-radius: 8px;
+          background: rgba(15, 23, 42, 0.98);
+          backdrop-filter: blur(12px);
+          border-radius: 10px;
           overflow: hidden;
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          border: 1px solid rgba(71, 85, 105, 0.4);
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+          border: 1px solid rgba(148, 163, 184, 0.3);
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
         
         .radio-widget.collapsed {
-          width: 280px !important;
-          height: 40px !important;
+          width: 260px !important;
+          height: 42px !important;
         }
         
         .radio-widget.expanded {
@@ -516,12 +532,49 @@ export function RadioWidget() {
         .status.error {
           color: #dc2626;
         }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+          .radio-widget {
+            top: 10px !important;
+            left: 10px !important;
+            right: 10px !important;
+            width: auto !important;
+          }
+          
+          .radio-widget.collapsed {
+            width: auto !important;
+            max-width: calc(100vw - 20px) !important;
+          }
+          
+          .radio-widget.expanded {
+            width: auto !important;
+            max-width: calc(100vw - 20px) !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .radio-widget {
+            font-size: 13px;
+          }
+          
+          .collapsed-song-info {
+            font-size: 10px !important;
+          }
+          
+          .control-btn {
+            font-size: 10px !important;
+            padding: 4px 8px !important;
+            min-width: 35px !important;
+            height: 24px !important;
+          }
+        }
       `}</style>
       <div className={`radio-widget ${isCollapsed ? 'collapsed' : 'expanded'}`} id="radioWidget">
         <div className="widget-header">
           <div className="collapsed-controls">
             <div className="collapsed-song-info">
-              {currentSong ? truncateText(`${currentSong.artist} - ${currentSong.title}`, 35) : 'Loading...'}
+              {currentSong ? truncateText(`${currentSong.artist} - ${currentSong.title}`, 32) : 'Loading...'}
             </div>
             <button className="collapsed-play-btn" onClick={togglePlay}>
               {isPlaying ? '⏸' : '▶'}
@@ -589,7 +642,7 @@ export function RadioWidget() {
             <span className="volume-label">{volume}%</span>
           </div>
           
-          <div className={`status ${status === 'Playing' ? 'success' : status === 'Error' ? 'error' : ''}`}>
+          <div className={`status ${status === 'Playing' ? 'success' : status.includes('not found') || status.includes('Error') ? 'error' : ''}`}>
             {status}
           </div>
         </div>
