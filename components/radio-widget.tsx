@@ -262,7 +262,7 @@ export function RadioWidget() {
       <style jsx>{`
         .radio-widget {
           position: fixed !important;
-          top: 20px !important;
+          top: 12px !important;
           left: 20px !important;
           z-index: 10000 !important;
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -277,18 +277,18 @@ export function RadioWidget() {
         
         .radio-widget.collapsed {
           width: 260px !important;
-          height: 42px !important;
+          height: 36px !important;
         }
         
         .radio-widget.expanded {
-          width: 350px;
+          width: 380px;
           min-height: 140px;
           max-height: 140px;
         }
         
         .widget-header {
           background: rgba(30, 41, 59, 0.8);
-          padding: 6px 10px;
+          padding: 4px 10px;
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -299,13 +299,13 @@ export function RadioWidget() {
         
         .radio-widget.collapsed .widget-header {
           border-bottom: none;
-          padding: 6px 10px;
+          padding: 4px 10px;
         }
         
         .collapsed-controls {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           flex: 1;
           min-width: 0;
         }
@@ -318,19 +318,19 @@ export function RadioWidget() {
           overflow: hidden;
           text-overflow: ellipsis;
           min-width: 0;
-          margin-right: 8px;
+          margin-right: 6px;
         }
         
         .collapsed-play-btn {
           background: #334155;
           border: 1px solid rgba(148, 163, 184, 0.6);
           color: #f1f5f9;
-          padding: 6px 10px;
+          padding: 4px 8px;
           border-radius: 4px;
           cursor: pointer;
           font-size: 12px;
-          min-width: 40px;
-          height: 28px;
+          min-width: 36px;
+          height: 24px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -364,12 +364,12 @@ export function RadioWidget() {
           border: 1px solid rgba(148, 163, 184, 0.6);
           color: #f1f5f9;
           cursor: pointer;
-          font-size: 16px;
-          padding: 6px;
+          font-size: 14px;
+          padding: 4px;
           border-radius: 4px;
           transition: all 0.2s;
-          width: 32px;
-          height: 28px;
+          width: 28px;
+          height: 24px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -384,7 +384,7 @@ export function RadioWidget() {
         }
         
         .widget-content {
-          padding: 8px;
+          padding: 10px 12px 8px 12px;
           display: block;
         }
         
@@ -486,7 +486,8 @@ export function RadioWidget() {
         .volume-container {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
+          padding-right: 4px;
         }
         
         .volume-icon {
@@ -496,7 +497,7 @@ export function RadioWidget() {
         }
         
         .volume-slider {
-          width: 100px;
+          width: 110px;
           height: 4px;
           background: rgba(71, 85, 105, 0.4);
           border-radius: 2px;
@@ -539,7 +540,7 @@ export function RadioWidget() {
         /* Responsive adjustments */
         @media (max-width: 768px) {
           .radio-widget {
-            top: 10px !important;
+            top: 8px !important;
             left: 10px !important;
             right: 10px !important;
             width: auto !important;
@@ -573,7 +574,11 @@ export function RadioWidget() {
           }
           
           .volume-slider {
-            width: 60px !important;
+            width: 70px !important;
+          }
+          
+          .volume-container {
+            gap: 6px !important;
           }
         }
       `}</style>
