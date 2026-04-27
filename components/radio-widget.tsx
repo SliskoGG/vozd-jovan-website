@@ -1,12 +1,22 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 interface Song {
   title: string
   artist: string
   filename: string
   url: string
+  genre: string
+}
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const shuffled = [...arr]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
 }
 
 export function RadioWidget() {
@@ -15,16 +25,27 @@ export function RadioWidget() {
   const [currentSong, setCurrentSong] = useState<Song | null>(null)
   const [volume, setVolume] = useState(50)
   const [status, setStatus] = useState('Ready')
+  const [allSongs, setAllSongs] = useState<Song[]>([])
   const [playlist, setPlaylist] = useState<Song[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isShuffled, setIsShuffled] = useState(true)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [activeGenre, setActiveGenre] = useState('All')
+  const [genres, setGenres] = useState<string[]>([])
   
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const hasAutoPlayed = useRef(false)
+  const wasPlayingRef = useRef(false)
 
-  // Initialize playlist from JSON file
+  const applyFilter = useCallback((songs: Song[], genre: string, shuffle: boolean) => {
+    let filtered = genre === 'All' ? songs : songs.filter(s => s.genre === genre)
+    if (shuffle) {
+      filtered = shuffleArray(filtered)
+    }
+    return filtered
+  }, [])
+
   useEffect(() => {
     const loadSongs = async () => {
       try {
@@ -36,28 +57,13 @@ export function RadioWidget() {
         
         const songs: Song[] = await response.json()
         console.log(`Loaded ${songs.length} songs from songs.json`)
+
+        setAllSongs(songs)
+
+        const uniqueGenres = Array.from(new Set(songs.map(s => s.genre).filter(Boolean)))
+        setGenres(uniqueGenres)
         
-        // Test file accessibility
-        for (const song of songs) {
-          try {
-            const fileResponse = await fetch(song.url, { method: 'HEAD' })
-            console.log(`"${song.title}" - ${fileResponse.ok ? 'Found' : 'Not found'} (${fileResponse.status})`)
-            if (!fileResponse.ok) {
-              console.warn(`File not accessible: ${song.url}`)
-            }
-          } catch (error) {
-            console.error(`Error checking "${song.title}":`, error)
-          }
-        }
-        
-        let finalPlaylist = songs
-        if (isShuffled) {
-          finalPlaylist = [...songs]
-          for (let i = finalPlaylist.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [finalPlaylist[i], finalPlaylist[j]] = [finalPlaylist[j], finalPlaylist[i]]
-          }
-        }
+        const finalPlaylist = applyFilter(songs, 'All', isShuffled)
         
         setPlaylist(finalPlaylist)
         if (finalPlaylist.length > 0) {
@@ -75,25 +81,21 @@ export function RadioWidget() {
     }
     
     loadSongs()
-  }, []) // Only run once on mount
+  }, [])
 
-  // Handle song changes
   useEffect(() => {
     if (!currentSong) return
 
-    // Clean up previous audio
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.src = ''
     }
 
-    // Create new audio
     const audio = new Audio()
     audio.preload = "metadata"
     audio.volume = volume / 100
     audio.src = currentSong.url
 
-    // Add event listeners
     audio.addEventListener('ended', () => nextSong())
     audio.addEventListener('loadstart', () => setStatus('Loading...'))
     audio.addEventListener('canplay', () => setStatus('Ready'))
@@ -101,7 +103,6 @@ export function RadioWidget() {
       console.error('Audio error for:', currentSong.title, e)
       setStatus(`File not found: ${currentSong.title}`)
       setIsPlaying(false)
-      // Don't auto-advance on error, let user manually skip
     })
     audio.addEventListener('timeupdate', () => {
       setCurrentTime(audio.currentTime)
@@ -109,16 +110,13 @@ export function RadioWidget() {
     audio.addEventListener('loadedmetadata', () => {
       if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
         setDuration(audio.duration)
-        console.log(`Duration for "${currentSong.title}": ${Math.floor(audio.duration / 60)}:${Math.floor(audio.duration % 60).toString().padStart(2, '0')}`)
       } else {
-        console.warn(`Invalid duration for "${currentSong.title}":`, audio.duration)
         setDuration(0)
       }
     })
 
     audioRef.current = audio
 
-    // Autoplay only once on first load
     if (!hasAutoPlayed.current) {
       hasAutoPlayed.current = true
       setTimeout(() => {
@@ -134,7 +132,6 @@ export function RadioWidget() {
     }
   }, [currentSong])
 
-  // Update volume
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume / 100
@@ -179,11 +176,10 @@ export function RadioWidget() {
 
   const nextSong = () => {
     if (playlist.length === 0) return
-    const nextIndex = (currentIndex + 1) % playlist.length
-    setCurrentIndex(nextIndex)
-    setCurrentSong(playlist[nextIndex])
+    const nextIdx = (currentIndex + 1) % playlist.length
+    setCurrentIndex(nextIdx)
+    setCurrentSong(playlist[nextIdx])
     
-    // Continue playing if we were playing
     if (isPlaying) {
       setTimeout(() => {
         if (audioRef.current) {
@@ -201,11 +197,10 @@ export function RadioWidget() {
 
   const previousSong = () => {
     if (playlist.length === 0) return
-    const prevIndex = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1
-    setCurrentIndex(prevIndex)
-    setCurrentSong(playlist[prevIndex])
+    const prevIdx = currentIndex === 0 ? playlist.length - 1 : currentIndex - 1
+    setCurrentIndex(prevIdx)
+    setCurrentSong(playlist[prevIdx])
     
-    // Continue playing if we were playing
     if (isPlaying) {
       setTimeout(() => {
         if (audioRef.current) {
@@ -222,44 +217,62 @@ export function RadioWidget() {
   }
 
   const toggleShuffle = () => {
-  const newShuffleState = !isShuffled
-  setIsShuffled(newShuffleState)
-  
-  if (newShuffleState) {
-    // Shuffle the playlist but keep current song at current position
-    const currentSongObj = currentSong
-    const otherSongs = playlist.filter((_, index) => index !== currentIndex)
+    const newShuffleState = !isShuffled
+    setIsShuffled(newShuffleState)
     
-    // Shuffle the other songs
-    for (let i = otherSongs.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [otherSongs[i], otherSongs[j]] = [otherSongs[j], otherSongs[i]]
+    if (newShuffleState) {
+      const currentSongObj = currentSong
+      const otherSongs = playlist.filter((_, index) => index !== currentIndex)
+      const shuffledOthers = shuffleArray(otherSongs)
+      const newPlaylist = currentSongObj ? [currentSongObj, ...shuffledOthers] : shuffledOthers
+      setPlaylist(newPlaylist)
+      setCurrentIndex(0)
+    } else {
+      const filtered = applyFilter(allSongs, activeGenre, false)
+      setPlaylist(filtered)
+      const newIndex = filtered.findIndex(s => s.filename === currentSong?.filename)
+      setCurrentIndex(newIndex >= 0 ? newIndex : 0)
     }
-    
-    // Put current song first, then shuffled songs
-    const newPlaylist = [currentSongObj, ...otherSongs]
-    setPlaylist(newPlaylist)
-    setCurrentIndex(0)
-  } else {
-    // Restore original order - reload from JSON
-    const loadOriginalOrder = async () => {
-      try {
-        const response = await fetch('/songs.json')
-        const originalSongs = await response.json()
-        setPlaylist(originalSongs)
-        
-        // Find current song in original playlist
-        const newIndex = originalSongs.findIndex(song => 
-          song.filename === currentSong?.filename
-        )
-        setCurrentIndex(newIndex >= 0 ? newIndex : 0)
-      } catch (error) {
-        console.error('Failed to restore original order:', error)
-      }
-    }
-    loadOriginalOrder()
   }
-}
+
+  const handleGenreChange = (genre: string) => {
+    setActiveGenre(genre)
+    wasPlayingRef.current = isPlaying
+
+    const filtered = applyFilter(allSongs, genre, isShuffled)
+    setPlaylist(filtered)
+
+    if (filtered.length > 0) {
+      const currentInFiltered = currentSong
+        ? filtered.findIndex(s => s.filename === currentSong.filename)
+        : -1
+
+      if (currentInFiltered >= 0) {
+        setCurrentIndex(currentInFiltered)
+      } else {
+        setCurrentIndex(0)
+        setCurrentSong(filtered[0])
+        if (wasPlayingRef.current) {
+          setTimeout(() => {
+            if (audioRef.current) {
+              audioRef.current.play().then(() => {
+                setIsPlaying(true)
+                setStatus('Playing')
+              }).catch(() => {
+                setIsPlaying(false)
+                setStatus('Click ▶ to start')
+              })
+            }
+          }, 500)
+        }
+      }
+      setStatus(`${genre === 'All' ? 'All' : genre}: ${filtered.length} songs`)
+    } else {
+      setCurrentSong(null)
+      setCurrentIndex(0)
+      setStatus('No songs in this genre')
+    }
+  }
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseInt(e.target.value)
@@ -316,8 +329,8 @@ export function RadioWidget() {
         
         .radio-widget.expanded {
           width: 380px;
-          min-height: 140px;
-          max-height: 140px;
+          min-height: 180px;
+          max-height: 220px;
         }
         
         .widget-header {
@@ -330,12 +343,6 @@ export function RadioWidget() {
           border-bottom: 1px solid rgba(71, 85, 105, 0.3);
           gap: 10px;
         }
-        
-       .radio-widget.expanded {
-  width: 380px;
-  min-height: 150px;
-  max-height: 150px;
-}
         
         .collapsed-controls {
           display: flex;
@@ -428,7 +435,7 @@ export function RadioWidget() {
         }
         
         .now-playing {
-          margin-bottom: 10px;
+          margin-bottom: 8px;
         }
         
         .song-info {
@@ -445,6 +452,36 @@ export function RadioWidget() {
         .song-artist {
           color: #94a3b8;
           font-size: 11px;
+        }
+
+        .genre-tabs {
+          display: flex;
+          gap: 4px;
+          margin-bottom: 8px;
+          flex-wrap: wrap;
+        }
+
+        .genre-tab {
+          background: #1e293b;
+          border: 1px solid rgba(71, 85, 105, 0.4);
+          color: #94a3b8;
+          padding: 2px 8px;
+          border-radius: 3px;
+          cursor: pointer;
+          font-size: 10px;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+
+        .genre-tab:hover {
+          background: #334155;
+          color: #f1f5f9;
+        }
+
+        .genre-tab.active {
+          background: #0f766e;
+          border-color: #14b8a6;
+          color: #f0fdfa;
         }
         
         .controls {
@@ -607,6 +644,11 @@ export function RadioWidget() {
             min-width: 30px !important;
             height: 24px !important;
           }
+
+          .genre-tab {
+            font-size: 9px !important;
+            padding: 2px 6px !important;
+          }
           
           .volume-slider {
             width: 70px !important;
@@ -664,6 +706,26 @@ export function RadioWidget() {
               </div>
             </div>
           </div>
+
+          {genres.length > 0 && (
+            <div className="genre-tabs">
+              <button
+                className={`genre-tab ${activeGenre === 'All' ? 'active' : ''}`}
+                onClick={() => handleGenreChange('All')}
+              >
+                All
+              </button>
+              {genres.map(genre => (
+                <button
+                  key={genre}
+                  className={`genre-tab ${activeGenre === genre ? 'active' : ''}`}
+                  onClick={() => handleGenreChange(genre)}
+                >
+                  {genre}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="progress-container">
             <span className="time-display">{formatTime(currentTime)}</span>
