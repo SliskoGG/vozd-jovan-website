@@ -89,7 +89,6 @@ export function RadioWidget() {
 
     // Create new audio
     const audio = new Audio()
-    audio.crossOrigin = "anonymous"
     audio.preload = "metadata"
     audio.volume = volume / 100
     audio.src = currentSong.url

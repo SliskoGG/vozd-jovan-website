@@ -1,32 +1,50 @@
 [
   {
-    "artist": "Unknown",
-    "title": "04 Under The Cold Moon",
-    "filename": "04 Under The Cold Moon.mp3",
-    "url": "/music/04 Under The Cold Moon.mp3"
+    "artist": "Manowar",
+    "title": "Death Tone",
+    "filename": "01 Death Tone.mp3",
+    "url": "https://pub-6ef1f55ece934d29b369f13f97886fae.r2.dev/music/01%20Death%20Tone.mp3"
   },
   {
-    "artist": "1389",
-    "title": "Smrt Nije Kraj",
-    "filename": "1389 - Smrt nije kraj.mp3",
-    "url": "/music/1389 - Smrt nije kraj.mp3"
+    "artist": "Manowar",
+    "title": "Metal Daze",
+    "filename": "02 Metal Daze.mp3",
+    "url": "https://pub-6ef1f55ece934d29b369f13f97886fae.r2.dev/music/02%20Metal%20Daze.mp3"
   },
   {
-    "artist": "2",
-    "title": "Sin Tame",
-    "filename": "2 - Sin Tame.mp3",
-    "url": "/music/2 - Sin Tame.mp3"
+    "artist": "Manowar",
+    "title": "Fast Taker",
+    "filename": "03 Fast Taker.mp3",
+    "url": "https://pub-6ef1f55ece934d29b369f13f97886fae.r2.dev/music/03%20Fast%20Taker.mp3"
   },
   {
-    "artist": "Unknown",
-    "title": "5",
-    "filename": "5.Empire of old werewolf.mp3",
-    "url": "/music/5.Empire of old werewolf.mp3"
+    "artist": "Manowar",
+    "title": "Shell Shock",
+    "filename": "04 Shell Shock.mp3",
+    "url": "https://pub-6ef1f55ece934d29b369f13f97886fae.r2.dev/music/04%20Shell%20Shock.mp3"
   },
   {
-    "artist": "6",
-    "title": "Zemlja Starih Pagana",
-    "filename": "6 - Zemlja Starih Pagana.mp3",
-    "url": "/music/6 - Zemlja Starih Pagana.mp3"
+    "artist": "Manowar",
+    "title": "Manowar",
+    "filename": "05 Manowar.mp3",
+    "url": "https://pub-6ef1f55ece934d29b369f13f97886fae.r2.dev/music/05%20Manowar.mp3"
+  },
+  {
+    "artist": "Manowar",
+    "title": "Dark Avenger",
+    "filename": "06 Dark Avenger.mp3",
+    "url": "https://pub-6ef1f55ece934d29b369f13f97886fae.r2.dev/music/06%20Dark%20Avenger.mp3"
+  },
+  {
+    "artist": "Manowar",
+    "title": "William's Tale",
+    "filename": "07 William_s Tale.mp3",
+    "url": "https://pub-6ef1f55ece934d29b369f13f97886fae.r2.dev/music/07%20William_s%20Tale.mp3"
+  },
+  {
+    "artist": "Manowar",
+    "title": "Battle Hymn",
+    "filename": "08 Battle Hymn.mp3",
+    "url": "https://pub-6ef1f55ece934d29b369f13f97886fae.r2.dev/music/08%20Battle%20Hymn.mp3"
   }
 ]
