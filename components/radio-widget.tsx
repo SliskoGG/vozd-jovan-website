@@ -50,9 +50,9 @@ export function RadioWidget() {
     const loadSongs = async () => {
       try {
         setStatus('Loading songs...')
-        const response = await fetch('/songs.json')
+        const response = await fetch('https://mmsradio-api.sergejslisko.workers.dev/playlist')
         if (!response.ok) {
-          throw new Error(`Failed to load songs.json: ${response.status}`)
+          throw new Error(`Failed to load playlist: ${response.status}`)
         }
         
         const songs: Song[] = await response.json()
